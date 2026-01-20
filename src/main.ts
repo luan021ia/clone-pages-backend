@@ -88,19 +88,22 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   
   // 📦 Servir arquivos estáticos do frontend (produção)
-  const frontendPath = join(__dirname, '..', '..', 'frontend', 'dist');
+  // O build do backend fica em dist/, então o frontend está em dist/../frontend/
+  const frontendPath = join(__dirname, '..', 'frontend');
+  console.log(`📂 [StaticAssets] Caminho do frontend: ${frontendPath}`);
+  
   app.useStaticAssets(frontendPath, {
     index: false, // Não servir index.html automaticamente
     setHeaders: (res, path) => {
       // Configurar MIME types corretos para módulos JavaScript
       if (path.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       } else if (path.endsWith('.mjs')) {
-        res.setHeader('Content-Type', 'application/javascript');
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
       } else if (path.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css');
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
       } else if (path.endsWith('.json')) {
-        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
       }
     }
   });
