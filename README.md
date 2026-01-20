@@ -77,6 +77,24 @@ backend/
 
 ## 🚢 Deploy
 
+### Deploy Automático (Dokploy)
+
+O projeto está configurado para deploy automático via Git push:
+
+1. **Build de produção:**
+```bash
+npm run build
+```
+
+2. **Commit e push (aciona deploy automático):**
+```bash
+git add .
+git commit -m "Deploy: atualização"
+git push origin main
+```
+
+O Dokploy detecta o push e faz o build automaticamente.
+
 ### Deploy com Frontend Integrado (Servidor único)
 
 Se você quer que o backend sirva os arquivos estáticos do frontend:
