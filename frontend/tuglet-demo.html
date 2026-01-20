@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demonstração Tuglet – Preservação no Download</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
+      h1 { margin-bottom: 8px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fafafa; }
+      pre { white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px solid #eee; padding: 12px; border-radius: 6px; }
+      .ok { color: #0a7; font-weight: 600; }
+      .rm { color: #b00; font-weight: 600; }
+      .list { margin: 0; padding-left: 18px; }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; background: #eef; border: 1px solid #ccd; font-size: 12px; margin-left: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Demonstração Tuglet – Preservação dos dados injetados</h1>
+    <p>
+      Com Tuglet <strong>ativo</strong>, a ferramenta preserva todos os códigos injetados (tracking e UI), e remove apenas artefatos internos de edição.
+      O download manterá <span class="ok">todos os códigos de rastreamento ativos</span>.
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h2>HTML Antes da Limpeza <span class="badge">Tuglet ativo</span></h2>
+        <pre>&lt;!doctype html&gt;
+&lt;html lang="pt-br" data-clonepages-edit="true"&gt;
+  &lt;head&gt;
+    &lt;!-- Meta Pixel Code (Tuglet) --&gt;
+    &lt;script data-tuglet="true"&gt;fbq('init','PIX-777');fbq('track','PageView');&lt;/script&gt;
+    &lt;script async src="https://connect.facebook.net/en_US/fbevents.js"&gt;&lt;/script&gt;
+
+    &lt;!-- Google Tag (gtag) --&gt;
+    &lt;script data-tuglet="true" async src="https://www.googletagmanager.com/gtag/js?id=G-ABCD1234"&gt;&lt;/script&gt;
+    &lt;script data-tuglet="true"&gt;window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-ABCD1234');&lt;/script&gt;
+
+    &lt;!-- GTM --&gt;
+    &lt;script data-tuglet="true" async src="https://www.googletagmanager.com/gtm.js?id=GTM-ABCD"&gt;&lt;/script&gt;
+    &lt;noscript data-tuglet="true"&gt;&lt;iframe src="https://www.googletagmanager.com/ns.html?id=GTM-ABCD" height="0" width="0" style="display:none;visibility:hidden"&gt;&lt;/iframe&gt;&lt;/noscript&gt;
+
+    &lt;!-- Microsoft Clarity --&gt;
+    &lt;script data-tuglet="true"&gt;(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/CL-777";})(window,document,"clarity","script","CL-777");&lt;/script&gt;
+
+    &lt;!-- UTMFY --&gt;
+    &lt;script data-tuglet="true"&gt;(function(){console.log('utmfy init')})();&lt;/script&gt;
+
+    &lt;!-- Artefatos da ferramenta --&gt;
+    &lt;script id="navigation-blocker"&gt;console.log('block');&lt;/script&gt;
+    &lt;script id="cp-editor-script"&gt;/* editor */&lt;/script&gt;
+    &lt;style id="cp-editor-style"&gt;.tmp{color:red}&lt;/style&gt;
+  &lt;/head&gt;
+  &lt;body class="cp-hover-highlight cp-selected other"&gt;
+    &lt;div id="cp-help"&gt;helper&lt;/div&gt;
+    &lt;div data-clonepages-editing="true" class="cp-selected x"&gt;content&lt;/div&gt;
+
+    &lt;!-- Botão WhatsApp Tuglet --&gt;
+    &lt;style data-tuglet="true"&gt;.fixed-whatsapp{position:fixed;right:16px;bottom:16px;}&lt;/style&gt;
+    &lt;a data-tuglet="true" class="fixed-whatsapp" href="https://wa.me/5588999999999" target="_blank"&gt;Whats&lt;/a&gt;
+
+    &lt;p&gt;Conteúdo importante&lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre>
+      </div>
+      <div class="card">
+        <h2>HTML Depois da Limpeza <span class="badge ok">Tuglet preservado</span></h2>
+        <pre>&lt;!doctype html&gt;
+&lt;html lang="pt-br"&gt;
+  &lt;head&gt;
+    &lt;script data-tuglet="true"&gt;fbq('init','PIX-777');fbq('track','PageView');&lt;/script&gt;
+    &lt;script async src="https://connect.facebook.net/en_US/fbevents.js"&gt;&lt;/script&gt;
+
+    &lt;script data-tuglet="true" async src="https://www.googletagmanager.com/gtag/js?id=G-ABCD1234"&gt;&lt;/script&gt;
+    &lt;script data-tuglet="true"&gt;window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', 'G-ABCD1234');&lt;/script&gt;
+
+    &lt;script data-tuglet="true" async src="https://www.googletagmanager.com/gtm.js?id=GTM-ABCD"&gt;&lt;/script&gt;
+    &lt;noscript data-tuglet="true"&gt;&lt;iframe src="https://www.googletagmanager.com/ns.html?id=GTM-ABCD" height="0" width="0" style="display:none;visibility:hidden"&gt;&lt;/iframe&gt;&lt;/noscript&gt;
+
+    &lt;script data-tuglet="true"&gt;(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/CL-777";})(window,document,"clarity","script","CL-777");&lt;/script&gt;
+    &lt;script data-tuglet="true"&gt;(function(){console.log('utmfy init')})();&lt;/script&gt;
+  &lt;/head&gt;
+  &lt;body class="other"&gt;
+    &lt;div class="x"&gt;content&lt;/div&gt;
+
+    &lt;style data-tuglet="true"&gt;.fixed-whatsapp{position:fixed;right:16px;bottom:16px;}&lt;/style&gt;
+    &lt;a data-tuglet="true" class="fixed-whatsapp" href="https://wa.me/5588999999999" target="_blank"&gt;Whats&lt;/a&gt;
+
+    &lt;p&gt;Conteúdo importante&lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</pre>
+        <h3>Resumo</h3>
+        <p><span class="ok">Preservado</span> (Tuglet): Pixel, gtag, GTM, Clarity, UTMFY, WhatsApp.</p>
+        <p><span class="rm">Removido</span> (artefatos internos): navigation-blocker, cp-editor-script, cp-editor-style, cp-help, classes cp-hover-highlight/cp-selected, atributos data-clonepages-edit/data-clonepages-editing.</p>
+      </div>
+    </div>
+  </body>
+</html>
