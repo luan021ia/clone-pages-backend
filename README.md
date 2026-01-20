@@ -77,13 +77,67 @@ backend/
 
 ## 🚢 Deploy
 
-1. Faça build: `npm run build`
-2. Configure `.env` no servidor
-3. Instale dependências: `npm install --production`
-4. Execute: `npm run start:prod`
+### Deploy com Frontend Integrado (Servidor único)
 
-## 📞 Frontend
+Se você quer que o backend sirva os arquivos estáticos do frontend:
 
-Este backend serve o frontend em: `https://clonepages.fabricadelowticket.com.br`
+1. **Buildar o frontend primeiro:**
+```bash
+cd ../frontend
+npm run build
+cd ../backend
+```
 
-Configure CORS no `.env` para permitir requisições do frontend.
+2. **Buildar o backend com frontend:**
+```bash
+npm run build:full
+```
+
+Isso irá compilar o TypeScript do backend e copiar os arquivos buildados do frontend.
+
+3. **Deploy automático via Git:**
+```bash
+git add .
+git commit -m "Deploy: backend + frontend"
+git push origin main
+```
+
+### Deploy Separado (Servidores diferentes)
+
+Se você tem frontend e backend em servidores separados:
+
+1. **Buildar apenas o backend:**
+```bash
+npm run build
+```
+
+2. **Deploy via Git:**
+```bash
+git add .
+git commit -m "Deploy: backend"
+git push origin main
+```
+
+### Variáveis de Ambiente em Produção
+
+Configure no painel do Dokploy ou em `.env`:
+
+```bash
+PORT=3333
+JWT_SECRET=sua-chave-secreta
+ALLOWED_ORIGINS=https://clonepages.fabricadelowticket.com.br
+KIWIFY_TOKEN=seu-token
+KIWIFY_PRODUCT_ID=seu-product-id
+```
+
+### Verificar Deploy
+
+- Backend API: `https://bclone.fabricadelowticket.com.br/api/clone`
+- Frontend (se integrado): `https://bclone.fabricadelowticket.com.br/`
+
+## 📞 Conexão com Frontend
+
+- **Frontend separado**: `https://clonepages.fabricadelowticket.com.br`
+- **Frontend integrado**: Servido pelo backend em `/`
+
+Configure `ALLOWED_ORIGINS` no `.env` para permitir requisições CORS.
