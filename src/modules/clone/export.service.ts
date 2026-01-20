@@ -92,10 +92,10 @@ export class ExportService {
             `${options.customCode.head}\n</head>`
           );
         }
-        if (options.customCode.bodyStart) {
+        if (options.customCode?.bodyStart) {
           processedHtml = processedHtml.replace(
             /<body([^>]*)>/i,
-            (match, attrs) => `<body${attrs}>\n${options.customCode.bodyStart}`
+            (match, attrs) => `<body${attrs}>\n${options.customCode?.bodyStart}`
           );
         }
         if (options.customCode.bodyEnd) {
@@ -142,7 +142,7 @@ export class ExportService {
             
             console.log('✅ Asset baixado:', localPath);
           } catch (error) {
-            console.warn('⚠️ Falha ao baixar asset:', asset.url, error.message);
+            console.warn('⚠️ Falha ao baixar asset:', asset.url, error instanceof Error ? error.message : 'Erro desconhecido');
           }
         }
         
@@ -175,7 +175,7 @@ export class ExportService {
     } catch (error) {
       console.error('❌ [ExportService] Erro ao gerar ZIP:', error);
       throw new HttpException(
-        `Erro ao gerar export: ${error.message}`,
+        `Erro ao gerar export: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }

@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "build": "tsc -p tsconfig.json",
     "prestart": "npm run build",
@@ -54,6 +54,7 @@
     "@typescript-eslint/parser": "^8.45.0",
     "eslint": "^9.36.0",
     "jest": "^30.2.0",
+    "rimraf": "^6.1.2",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
