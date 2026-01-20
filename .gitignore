@@ -7,7 +7,9 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
-frontend/
+
+# Frontend build (comentar esta linha se quiser incluir o frontend no deploy)
+# frontend/
 
 # Environment variables
 .env
