@@ -48,56 +48,37 @@ export class UsersController {
 
   @Post('login')
   async login(@Body() data: LoginDto) {
-    console.log('🔐 [Login] Iniciando login para:', data.email);
     const user = await this.service.validate(data.email, data.password)
     if (!user) throw new UnauthorizedException('Credenciais inválidas')
 
-    console.log('✅ [Login] Credenciais válidas. userId:', user.id);
-
-    // Gerar sessionId único para esta sessão
     const sessionId = randomUUID()
-    console.log('🔑 [Login] SessionId gerado:', sessionId);
-
-    // Salvar sessionId no banco (invalida sessões anteriores automaticamente)
-    console.log('💾 [Login] Salvando sessionId no banco...');
     await this.service.updateSessionId(user.id, sessionId)
-    console.log('✅ [Login] SessionId salvo no banco');
 
-    // Admins têm acesso ilimitado
     if (user.role === 'admin') {
-      console.log('👑 [Login] Admin detectado. Gerando token...');
-      // ✅ INCLUIR EMAIL NO TOKEN para permitir fallback no frontend
       const token = await this.jwt.signAsync({ 
         sub: user.id, 
-        email: user.email,  // ✅ NOVO: incluir email
-        name: user.name,    // ✅ NOVO: incluir name
+        email: user.email,
+        name: user.name,
         role: user.role, 
         sessionId 
       })
-      console.log('✅ [Login] Token gerado para admin. SessionId incluído:', sessionId);
       return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } }
     }
 
-    // Usuários normais: verificar licença
-    console.log('👤 [Login] Usuário normal. Verificando licença...');
     const license = await this.licensesService.getUserLicense(user.id)
     const licenseInfo = this.licensesService.getLicenseInfo(license)
 
     if (!licenseInfo.isActive) {
-      console.error('❌ [Login] Licença inativa ou expirada');
       throw new UnauthorizedException('Sua licença está inativa ou expirada. Entre em contato com o suporte.')
     }
 
-    console.log('✅ [Login] Licença ativa. Gerando token...');
-    // ✅ INCLUIR EMAIL NO TOKEN para permitir fallback no frontend
     const token = await this.jwt.signAsync({ 
       sub: user.id, 
-      email: user.email,  // ✅ NOVO: incluir email
-      name: user.name,    // ✅ NOVO: incluir name
+      email: user.email,
+      name: user.name,
       role: user.role, 
       sessionId 
     })
-    console.log('✅ [Login] Token gerado. SessionId incluído:', sessionId);
     return { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } }
   }
 

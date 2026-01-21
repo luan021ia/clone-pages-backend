@@ -32,12 +32,6 @@ import { KiwifyModule } from './modules/webhooks/kiwify/kiwify.module'
           autoLoadEntities: true
         }
 
-        // Log para debug (também em produção para identificar problemas)
-        console.log('📦 [TypeORM] Configuração:', {
-          type: config.type,
-          database: config.database,
-          nodeEnv: process.env.NODE_ENV
-        })
 
         return config
       }

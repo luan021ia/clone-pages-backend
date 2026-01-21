@@ -12,21 +12,16 @@ async function bootstrap() {
   
   if (dbTarget.startsWith('/data/') && !fs.existsSync(dbTarget)) {
     try {
-      // Criar diretório /data se não existir
       const dataDir = path.dirname(dbTarget);
       if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
       
-      // Copiar banco do repositório se existir
       if (fs.existsSync(dbSource)) {
         fs.copyFileSync(dbSource, dbTarget);
-        console.log('✅ [Init] Banco SQLite copiado do repositório para volume persistente');
-      } else {
-        console.log('ℹ️  [Init] Banco não encontrado no repositório. Será criado automaticamente.');
       }
     } catch (error) {
-      console.warn('⚠️  [Init] Erro ao copiar banco (será criado automaticamente):', error);
+      // Silencioso - banco será criado automaticamente pelo TypeORM
     }
   }
 
