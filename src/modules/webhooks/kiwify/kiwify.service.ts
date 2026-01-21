@@ -172,12 +172,14 @@ export class KiwifyService {
     const action = this.determineAction(orderStatus);
     const { plano, dias } = this.determinePlan(data);
     const nome = data.Customer?.full_name || 'Usuário';
+    const cpf = data.Customer?.cpf;
+    const phone = data.Customer?.mobile;
 
     this.logger.log(`📥 Webhook recebido: ${orderStatus} → ${action} (${plano}, ${dias} dias) para ${email}`);
 
     switch (action) {
       case WebhookAction.ACTIVATE:
-        await this.handleActivate(email, nome, dias, plano);
+        await this.handleActivate(email, nome, dias, plano, cpf, phone);
         break;
 
       case WebhookAction.RENEW:
@@ -209,6 +211,8 @@ export class KiwifyService {
     nome: string,
     dias: number,
     plano: 'monthly' | 'yearly',
+    cpf?: string,
+    phone?: string,
   ): Promise<void> {
     try {
       // Buscar usuário por email
@@ -216,13 +220,13 @@ export class KiwifyService {
 
       if (!user) {
         try {
-          // Criar novo usuário com senha aleatória
-          // O usuário precisará fazer reset de senha ao primeiro login
-          const senhaAleatoria = crypto.randomBytes(16).toString('hex');
+          // Criar novo usuário com senha = email
           user = await this.usersService.create({
             email,
             name: nome,
-            password: senhaAleatoria,
+            password: email,
+            cpf: cpf || undefined,
+            phone: phone || undefined,
           });
           this.logger.log(`✅ Novo usuário criado: ${email}`);
         } catch (error) {
@@ -236,6 +240,16 @@ export class KiwifyService {
           } else {
             throw error;
           }
+        }
+      } else {
+        // Atualizar CPF e telefone se o usuário já existe mas não tem
+        const updates: { cpf?: string; phone?: string } = {};
+        if (cpf && !user.cpf) updates.cpf = cpf;
+        if (phone && !user.phone) updates.phone = phone;
+        
+        if (Object.keys(updates).length > 0) {
+          await this.usersService.update(user.id, updates);
+          this.logger.log(`✅ Dados atualizados para usuário: ${email}`);
         }
       }
 

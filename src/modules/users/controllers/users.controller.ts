@@ -104,8 +104,9 @@ export class UsersController {
   @Get('me')
   @UseGuards(SessionGuard)
   async getCurrentUser(@Request() req: any) {
-    const user = req.user; // Usuário já validado pelo SessionGuard
-    return { user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+    const userId = req.user.id;
+    const user = await this.service.getById(userId);
+    return { user: { id: user.id, name: user.name, email: user.email, role: user.role, cpf: user.cpf, phone: user.phone } };
   }
 
   // Admin routes
@@ -149,6 +150,13 @@ export class UsersController {
   @UseGuards(SessionGuard)
   async reactivateLicense(@Param('id') id: string, @Body() data: { days: number }) {
     const license = await this.licensesService.reactivateLicense(id, data.days)
+    return this.licensesService.getLicenseInfo(license)
+  }
+
+  @Put(':id/license/days')
+  @UseGuards(SessionGuard)
+  async setLicenseDays(@Param('id') id: string, @Body() data: { days: number }) {
+    const license = await this.licensesService.setLicenseDays(id, data.days)
     return this.licensesService.getLicenseInfo(license)
   }
 }

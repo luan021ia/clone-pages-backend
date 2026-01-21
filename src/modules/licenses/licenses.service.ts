@@ -84,6 +84,25 @@ export class LicensesService {
     return this.licenseRepo.save(license)
   }
 
+  async setLicenseDays(userId: string, days: number): Promise<License> {
+    let license = await this.getUserLicense(userId)
+
+    if (!license) {
+      // Não existe licença: cria nova
+      return this.createLicense(userId, days)
+    }
+
+    // DEFINIR DIAS = Define data de expiração a partir de AGORA com quantidade específica de dias
+    const newExpiry = new Date()
+    newExpiry.setDate(newExpiry.getDate() + days)
+
+    license.expiresAt = newExpiry
+    // Ativa a licença automaticamente se dias > 0
+    license.isActive = days > 0
+
+    return this.licenseRepo.save(license)
+  }
+
   getLicenseInfo(license: License | null) {
     if (!license) {
       return {

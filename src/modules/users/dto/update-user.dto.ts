@@ -15,4 +15,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(['user', 'admin'])
   role?: 'user' | 'admin'
+
+  @IsOptional()
+  cpf?: string
+
+  @IsOptional()
+  phone?: string
 }

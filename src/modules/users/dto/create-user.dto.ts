@@ -15,5 +15,11 @@ export class CreateUserDto {
   role?: 'user' | 'admin'
 
   @IsOptional()
+  cpf?: string
+
+  @IsOptional()
+  phone?: string
+
+  @IsOptional()
   licenseDays?: number
 }

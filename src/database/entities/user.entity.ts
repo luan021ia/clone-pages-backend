@@ -18,6 +18,12 @@ export class User {
   @Column({ type: 'varchar', length: 20, default: 'user' })
   role!: 'user' | 'admin'
 
+  @Column({ type: 'varchar', length: 14, nullable: true })
+  cpf?: string
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone?: string
+
   @Column({ type: 'varchar', length: 36, nullable: true })
   currentSessionId?: string
 
