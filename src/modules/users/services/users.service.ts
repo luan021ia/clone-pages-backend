@@ -16,7 +16,14 @@ export class UsersService implements IUserService {
     const password = await hash(data.password, 10)
     const name = data.name || data.email.split('@')[0] // Use email prefix if no name
     const role = data.role || 'user' // Default to user
-    return this.users.create({ name, email: data.email, password, role })
+    return this.users.create({ 
+      name, 
+      email: data.email, 
+      password, 
+      role,
+      cpf: data.cpf,
+      phone: data.phone
+    })
   }
 
   async update(id: string, data: UpdateUserDto): Promise<User> {
@@ -25,6 +32,8 @@ export class UsersService implements IUserService {
     if (data.email) patch.email = data.email
     if (data.password) patch.password = await hash(data.password, 10)
     if (data.role) patch.role = data.role
+    if (data.cpf !== undefined) patch.cpf = data.cpf
+    if (data.phone !== undefined) patch.phone = data.phone
     return this.users.update(id, patch)
   }
 
