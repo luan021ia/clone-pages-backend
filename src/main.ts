@@ -2,8 +2,34 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function bootstrap() {
+  // 🔄 Copiar banco SQLite do repositório para volume persistente se não existir
+  const dbSource = path.join(process.cwd(), 'saas-dev.sqlite');
+  const dbTarget = process.env.SQLITE_DB || '/data/saas-dev.sqlite';
+  
+  if (dbTarget.startsWith('/data/') && !fs.existsSync(dbTarget)) {
+    try {
+      // Criar diretório /data se não existir
+      const dataDir = path.dirname(dbTarget);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      // Copiar banco do repositório se existir
+      if (fs.existsSync(dbSource)) {
+        fs.copyFileSync(dbSource, dbTarget);
+        console.log('✅ [Init] Banco SQLite copiado do repositório para volume persistente');
+      } else {
+        console.log('ℹ️  [Init] Banco não encontrado no repositório. Será criado automaticamente.');
+      }
+    } catch (error) {
+      console.warn('⚠️  [Init] Erro ao copiar banco (será criado automaticamente):', error);
+    }
+  }
+
   const app = await NestFactory.create(AppModule);
   
   // 📦 Configurar limites de body para uploads grandes (100MB)
