@@ -8,12 +8,29 @@ import { hash } from 'bcryptjs'
 async function run() {
   const source: DataSource = await ds.initialize()
   const repo = source.getRepository(User)
-  const exists = await repo.findOne({ where: { email: 'admin@example.com' } })
+  
+  // Criar admin principal
+  const adminEmail = 'admin@clonepages.com'
+  const exists = await repo.findOne({ where: { email: adminEmail } })
+  
   if (!exists) {
-    const password = await hash('admin123', 10)
-    await repo.save(repo.create({ name: 'Admin', email: 'admin@example.com', password }))
+    const password = await hash('Admin@2026', 10)
+    const admin = repo.create({ 
+      name: 'Administrador', 
+      email: adminEmail, 
+      password,
+      role: 'admin'
+    })
+    await repo.save(admin)
+    console.log('✅ Usuário admin criado:')
+    console.log('   Email:', adminEmail)
+    console.log('   Senha: Admin@2026')
+    console.log('   ⚠️  IMPORTANTE: Altere a senha após o primeiro login!')
+  } else {
+    console.log('ℹ️  Usuário admin já existe:', adminEmail)
   }
+  
   await source.destroy()
 }
 
-run()
+run().catch(console.error)

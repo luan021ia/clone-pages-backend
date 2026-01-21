@@ -9,7 +9,6 @@ async function bootstrap() {
   // 📦 Configurar limites de body para uploads grandes (100MB)
   app.use(json({ limit: '100mb' }));
   app.use(urlencoded({ extended: true, limit: '100mb' }));
-  console.log('📦 [BodyParser] Limite configurado: 100MB para JSON e URL-encoded');
 
   // 🎯 CORS Configuration - Lê ALLOWED_ORIGINS do .env
   let allowedOrigins: string[] = [];
@@ -19,17 +18,14 @@ async function bootstrap() {
     allowedOrigins = process.env.ALLOWED_ORIGINS.split(',')
       .map(origin => origin.trim())
       .filter(origin => origin.length > 0);
-    console.log('📋 [CORS] Usando ALLOWED_ORIGINS do .env:', allowedOrigins);
   }
   // 2. Fallback para FRONTEND_URL (se existir)
   else if (process.env.FRONTEND_URL) {
     allowedOrigins = [process.env.FRONTEND_URL];
-    console.log('📋 [CORS] Usando FRONTEND_URL do .env:', allowedOrigins);
   }
   // 3. Fallback para desenvolvimento local
   else {
     allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
-    console.log('📋 [CORS] Usando origens padrão de desenvolvimento:', allowedOrigins);
   }
 
   // 4. Em desenvolvimento, permitir localhost automaticamente se ALLOW_LOCALHOST=true
@@ -51,36 +47,26 @@ async function bootstrap() {
         allowedOrigins.push(origin);
       }
     });
-    
-    console.log('✅ [CORS] Localhost permitido automaticamente em desenvolvimento');
   }
 
   // Função para validar origem
   const corsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      console.log(`🔍 [CORS] Requisição recebida - Origin: ${origin || 'sem origem'}`);
-      console.log(`🔍 [CORS] Origens permitidas:`, allowedOrigins);
-      
       // Permitir requisições sem origem (ex: Postman, mobile apps)
       if (!origin) {
-        console.log('✅ [CORS] Requisição sem origem permitida');
         return callback(null, true);
       }
 
       // Verificar se a origem está na lista permitida
       if (allowedOrigins.includes(origin)) {
-        console.log(`✅ [CORS] Origem permitida: ${origin}`);
         return callback(null, true);
       }
 
       // Em desenvolvimento, permitir qualquer localhost
       if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
-        console.log(`✅ [CORS] Localhost permitido em desenvolvimento: ${origin}`);
         return callback(null, true);
       }
 
-      console.warn(`⚠️ [CORS] Origem bloqueada: ${origin}`);
-      console.warn(`⚠️ [CORS] Origens permitidas:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -115,8 +101,7 @@ async function bootstrap() {
   
   const port = process.env.PORT ? Number(process.env.PORT) : 3333;
   await app.listen(port);
-  console.log(`🚀 Backend is running on: http://localhost:${port}`);
-  console.log(`🌐 CORS enabled for origins:`, allowedOrigins);
+  console.log(`🚀 Backend rodando na porta ${port}`);
 }
 
 bootstrap();
