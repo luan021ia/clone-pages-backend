@@ -19,7 +19,8 @@ build/
 .env.production.local
 
 # Database
-*.sqlite
+# Exceção: banco de produção deve ser versionado
+!saas-dev.sqlite
 *.sqlite3
 *.db
 

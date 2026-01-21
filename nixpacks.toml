@@ -8,4 +8,4 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node dist/main.js"
+cmd = "bash -c 'chmod +x scripts/init-db.sh 2>/dev/null || true; bash scripts/init-db.sh 2>/dev/null || true; node dist/main.js'"
