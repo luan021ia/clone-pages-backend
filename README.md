@@ -159,3 +159,19 @@ KIWIFY_PRODUCT_ID=seu-product-id
 - **Frontend integrado**: Servido pelo backend em `/`
 
 Configure `ALLOWED_ORIGINS` no `.env` para permitir requisições CORS.
+
+### ⚠️ Importante: Rate Limiting no Deploy
+
+**Problema conhecido:** O Dokploy pode ignorar deploys quando há múltiplos pushes muito próximos (em poucos minutos).
+
+**Solução:**
+- Aguardar **2-3 minutos entre pushes** quando houver múltiplos commits
+- Agrupar mudanças relacionadas em um único commit quando possível
+- Se o deploy não for acionado, aguardar alguns minutos e fazer um novo push de teste
+
+**Sintomas:**
+- ✅ Push realizado com sucesso
+- ✅ Commit aparece no GitHub
+- ❌ Mas o deploy não é acionado no Dokploy
+
+Se isso acontecer, aguarde alguns minutos e faça um novo push.
