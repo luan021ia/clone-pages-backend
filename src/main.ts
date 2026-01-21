@@ -71,7 +71,7 @@ async function bootstrap() {
       }
 
       // Em desenvolvimento, permitir qualquer localhost
-      if (isDevelopment && origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
         return callback(null, true);
       }
 
@@ -80,7 +80,10 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   };
 
   app.enableCors(corsOptions);
