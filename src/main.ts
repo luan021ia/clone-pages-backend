@@ -2,11 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
-import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create(AppModule);
   
   // 📦 Configurar limites de body para uploads grandes (100MB)
   app.use(json({ limit: '100mb' }));
@@ -114,44 +112,6 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  
-  // 📦 Servir arquivos estáticos do frontend (produção)
-  // O build do backend fica em dist/, então o frontend está em dist/../frontend/
-  const frontendPath = join(__dirname, '..', 'frontend');
-  console.log(`📂 [StaticAssets] Caminho do frontend: ${frontendPath}`);
-  
-  app.useStaticAssets(frontendPath, {
-    index: false, // Não servir index.html automaticamente
-    setHeaders: (res, path) => {
-      // Configurar MIME types corretos para módulos JavaScript
-      if (path.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      } else if (path.endsWith('.mjs')) {
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      } else if (path.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css; charset=utf-8');
-      } else if (path.endsWith('.json')) {
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      }
-    }
-  });
-  
-  // Para qualquer rota não-API, servir o index.html (SPA routing)
-  app.use((req: any, res: any, next: any) => {
-    // Se não for uma rota de API, servir o index.html
-    if (!req.path.startsWith('/api') && 
-        !req.path.startsWith('/users') && 
-        !req.path.startsWith('/tasks') && 
-        !req.path.startsWith('/webhooks') &&
-        !req.path.startsWith('/render') &&
-        !req.path.match(/\.[a-zA-Z0-9]+$/)) { // Se não tiver extensão de arquivo
-      res.sendFile(join(frontendPath, 'index.html'));
-    } else {
-      next();
-    }
-  });
-  
-  console.log(`📂 [StaticAssets] Servindo frontend de: ${frontendPath}`);
   
   const port = process.env.PORT ? Number(process.env.PORT) : 3333;
   await app.listen(port);
