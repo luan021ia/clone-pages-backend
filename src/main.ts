@@ -60,22 +60,29 @@ async function bootstrap() {
   // Função para validar origem
   const corsOptions = {
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      console.log(`🔍 [CORS] Requisição recebida - Origin: ${origin || 'sem origem'}`);
+      console.log(`🔍 [CORS] Origens permitidas:`, allowedOrigins);
+      
       // Permitir requisições sem origem (ex: Postman, mobile apps)
       if (!origin) {
+        console.log('✅ [CORS] Requisição sem origem permitida');
         return callback(null, true);
       }
 
       // Verificar se a origem está na lista permitida
       if (allowedOrigins.includes(origin)) {
+        console.log(`✅ [CORS] Origem permitida: ${origin}`);
         return callback(null, true);
       }
 
       // Em desenvolvimento, permitir qualquer localhost
       if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+        console.log(`✅ [CORS] Localhost permitido em desenvolvimento: ${origin}`);
         return callback(null, true);
       }
 
       console.warn(`⚠️ [CORS] Origem bloqueada: ${origin}`);
+      console.warn(`⚠️ [CORS] Origens permitidas:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
