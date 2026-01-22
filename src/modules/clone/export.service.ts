@@ -43,45 +43,141 @@ export class ExportService {
     let processedHtml = html;
 
     try {
-      // 1. Extrair CSS
-      let cssContent = '';
+      // 0. CRITICAL: Remover tag <base> que quebra caminhos relativos
+      processedHtml = processedHtml.replace(/<base[^>]*>/gi, '');
+      console.log('📦 [ExportService] Tag <base> removida');
+
+      // 1. Extrair CSS (inline + externos)
+      const cssFiles: { filename: string; content: string }[] = [];
+      
       if (options.separateCSS) {
-        cssContent = this.extractCSS(html);
+        // 1.1. Extrair CSS inline
+        const inlineCSS = this.extractCSS(html);
+        if (inlineCSS && inlineCSS.trim().length > 0) {
+          cssFiles.push({ filename: 'styles.css', content: inlineCSS });
+          
+          // Remover CSS inline do HTML
+          processedHtml = processedHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        }
         
-        // Remover CSS inline do HTML
-        processedHtml = processedHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        // 1.2. Baixar CSS externos (com href)
+        const externalStyles = this.extractExternalStyles(processedHtml);
+        console.log('📦 [ExportService] Stylesheets externos encontrados:', externalStyles.length);
         
-        // Adicionar link para CSS externo
-        processedHtml = processedHtml.replace(
-          '</head>',
-          '<link rel="stylesheet" href="css/styles.css">\n</head>'
-        );
+        for (const style of externalStyles) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            const response = await fetch(style.url, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+              const cssContent = await response.text();
+              cssFiles.push({ filename: style.filename, content: cssContent });
+              
+              // Substituir URL no HTML
+              const escapedUrl = style.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              processedHtml = processedHtml.replace(
+                new RegExp(`<link[^>]*href=["']${escapedUrl}["'][^>]*>`, 'gi'),
+                `<link rel="stylesheet" href="css/${style.filename}">`
+              );
+              
+              console.log('✅ CSS externo baixado:', style.filename);
+            }
+          } catch (error) {
+            console.warn('⚠️ Falha ao baixar CSS:', style.url, error instanceof Error ? error.message : 'Erro desconhecido');
+          }
+        }
         
-        zip.file('css/styles.css', cssContent);
-        console.log('📦 [ExportService] CSS extraído:', cssContent.length, 'bytes');
+        // Adicionar todos os arquivos CSS ao ZIP
+        for (const cssFile of cssFiles) {
+          zip.file(`css/${cssFile.filename}`, cssFile.content);
+        }
+        
+        // Se havia CSS inline, adicionar referência ao arquivo consolidado
+        if (inlineCSS && inlineCSS.trim().length > 0) {
+          processedHtml = processedHtml.replace(
+            '</head>',
+            '<link rel="stylesheet" href="css/styles.css">\n</head>'
+          );
+        }
+        
+        console.log('📦 [ExportService] Total de arquivos CSS:', cssFiles.length);
       }
 
-      // 2. Extrair JavaScript
-      let jsContent = '';
+      // 2. Extrair JavaScript (inline e externos)
+      const jsFiles: { filename: string; content: string }[] = [];
+      
       if (options.separateJS) {
-        jsContent = this.extractJS(html);
-        
-        if (jsContent) {
-          // Remover scripts inline do HTML (mas manter os com src)
+        // 2.1. Extrair scripts inline
+        const inlineJS = this.extractJS(html);
+        if (inlineJS && inlineJS.trim().length > 0) {
+          jsFiles.push({ filename: 'scripts.js', content: inlineJS });
+          
+          // Remover scripts inline do HTML
           processedHtml = processedHtml.replace(
             /<script(?![^>]*src=)[^>]*>[\s\S]*?<\/script>/gi,
             ''
           );
-          
-          // Adicionar script externo antes de </body>
+        }
+        
+        // 2.2. Baixar scripts externos (com src)
+        const externalScripts = this.extractExternalScripts(processedHtml);
+        console.log('📦 [ExportService] Scripts externos encontrados:', externalScripts.length);
+        
+        for (const script of externalScripts) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            const response = await fetch(script.url, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+              const jsContent = await response.text();
+              jsFiles.push({ filename: script.filename, content: jsContent });
+              
+              // Substituir URL no HTML
+              const escapedUrl = script.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              processedHtml = processedHtml.replace(
+                new RegExp(escapedUrl, 'g'),
+                `js/${script.filename}`
+              );
+              
+              console.log('✅ Script externo baixado:', script.filename);
+            }
+          } catch (error) {
+            console.warn('⚠️ Falha ao baixar script:', script.url, error instanceof Error ? error.message : 'Erro desconhecido');
+          }
+        }
+        
+        // Adicionar todos os arquivos JS ao ZIP
+        for (const jsFile of jsFiles) {
+          zip.file(`js/${jsFile.filename}`, jsFile.content);
+        }
+        
+        // Se havia scripts inline, adicionar referência ao arquivo consolidado
+        if (inlineJS && inlineJS.trim().length > 0) {
           processedHtml = processedHtml.replace(
             '</body>',
             '<script src="js/scripts.js"></script>\n</body>'
           );
-          
-          zip.file('js/scripts.js', jsContent);
-          console.log('📦 [ExportService] JS extraído:', jsContent.length, 'bytes');
         }
+        
+        console.log('📦 [ExportService] Total de arquivos JS:', jsFiles.length);
       }
 
       // 3. Adicionar código customizado
@@ -158,11 +254,7 @@ export class ExportService {
       // 5. Adicionar HTML processado
       zip.file('index.html', processedHtml);
 
-      // 6. Adicionar arquivos auxiliares
-      zip.file('README.md', this.generateReadme(originalUrl, options, assetMap.size));
-      zip.file('.gitignore', this.generateGitignore());
-
-      // 7. Gerar ZIP
+      // 6. Gerar ZIP
       const buffer = await zip.generateAsync({
         type: 'nodebuffer',
         compression: 'DEFLATE',
@@ -229,6 +321,54 @@ export class ExportService {
     });
 
     return jsBlocks.join('\n\n');
+  }
+
+  /**
+   * Extrai URLs de scripts externos do HTML
+   */
+  private extractExternalScripts(html: string): Array<{ url: string; filename: string }> {
+    const scripts: Array<{ url: string; filename: string }> = [];
+    const seen = new Set<string>();
+    const $ = cheerio.load(html);
+
+    $('script[src]').each((_, el) => {
+      const src = $(el).attr('src');
+      
+      // Apenas scripts HTTP/HTTPS externos
+      if (src && src.startsWith('http') && !seen.has(src)) {
+        seen.add(src);
+        
+        // Gerar nome de arquivo baseado na URL
+        const filename = this.generateFilename(src, 'script');
+        scripts.push({ url: src, filename });
+      }
+    });
+
+    return scripts;
+  }
+
+  /**
+   * Extrai URLs de stylesheets externos do HTML
+   */
+  private extractExternalStyles(html: string): Array<{ url: string; filename: string }> {
+    const styles: Array<{ url: string; filename: string }> = [];
+    const seen = new Set<string>();
+    const $ = cheerio.load(html);
+
+    $('link[rel="stylesheet"]').each((_, el) => {
+      const href = $(el).attr('href');
+      
+      // Apenas stylesheets HTTP/HTTPS externos
+      if (href && href.startsWith('http') && !seen.has(href)) {
+        seen.add(href);
+        
+        // Gerar nome de arquivo baseado na URL
+        const filename = this.generateFilename(href, 'style');
+        styles.push({ url: href, filename });
+      }
+    });
+
+    return styles;
   }
 
   /**
@@ -299,82 +439,26 @@ export class ExportService {
     try {
       const urlObj = new URL(url);
       const pathname = urlObj.pathname;
-      const extMatch = pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|woff|woff2|ttf|otf|eot)$/i);
-      const ext = extMatch ? extMatch[0] : '.jpg';
+      
+      // Detectar extensão do arquivo
+      const extMatch = pathname.match(/\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|woff|woff2|ttf|otf|eot|js|css)$/i);
+      let ext = extMatch ? extMatch[0] : '';
+      
+      // Se não encontrou extensão, definir baseado no prefix
+      if (!ext) {
+        if (prefix === 'script') ext = '.js';
+        else if (prefix === 'style') ext = '.css';
+        else ext = '.jpg';
+      }
       
       // Gerar hash único
       const hash = crypto.createHash('md5').update(url).digest('hex').substring(0, 8);
       
       return `${prefix}_${hash}${ext}`;
     } catch {
-      return `${prefix}_${Date.now()}.jpg`;
+      // Fallback em caso de erro
+      const ext = prefix === 'script' ? '.js' : prefix === 'style' ? '.css' : '.jpg';
+      return `${prefix}_${Date.now()}${ext}`;
     }
-  }
-
-  /**
-   * Gera README.md para o projeto exportado
-   */
-  private generateReadme(originalUrl: string, options: ExportOptions, assetsCount: number): string {
-    return `# Página Clonada
-
-## 📁 Estrutura do Projeto
-
-\`\`\`
-.
-├── index.html              # Página principal
-${options.separateCSS ? '├── css/\n│   └── styles.css          # Estilos\n' : ''}${options.separateJS ? '├── js/\n│   └── scripts.js          # Scripts\n' : ''}${options.includeAssets ? `└── assets/
-    ├── images/             # Imagens (${assetsCount} arquivos)
-    ├── videos/             # Vídeos
-    └── fonts/              # Fontes` : ''}
-\`\`\`
-
-## 🚀 Como Usar
-
-### Opção 1: Abrir Localmente
-1. Extraia o arquivo ZIP
-2. Abra \`index.html\` no seu navegador
-
-### Opção 2: Deploy em Servidor
-1. Faça upload de todos os arquivos para seu servidor web
-2. Mantenha a estrutura de pastas intacta
-3. Acesse via seu domínio (ex: https://seusite.com)
-
-## ⚙️ Configurações de Export
-
-- **Assets incluídos**: ${options.includeAssets ? 'Sim' : 'Não'}
-- **CSS separado**: ${options.separateCSS ? 'Sim' : 'Não'}
-- **JavaScript separado**: ${options.separateJS ? 'Sim' : 'Não'}
-- **Minificado**: ${options.minify ? 'Sim' : 'Não'}
-
-## 📊 Informações
-
-- **URL Original**: ${originalUrl}
-- **Data de Export**: ${new Date().toLocaleString('pt-BR')}
-- **Clonado com**: Clone Pages
-
-## 📝 Notas
-
-- Todos os tracking codes foram removidos durante o clone
-- Links e funcionalidades foram preservados
-- Imagens e assets foram baixados localmente
-
----
-
-**Precisa de ajuda?** Visite https://clonepages.com/docs
-`;
-  }
-
-  /**
-   * Gera .gitignore
-   */
-  private generateGitignore(): string {
-    return `.DS_Store
-Thumbs.db
-*.log
-node_modules/
-.env
-.vscode/
-.idea/
-`;
   }
 }

@@ -1422,11 +1422,21 @@ export class CloneService {
     console.log('   - ✅ Site Next.js detectado, aplicando neutralização inteligente');
 
     // 2️⃣ Injetar script de interceptação ANTES de qualquer script do Next.js
+    const isProduction = process.env.NODE_ENV === 'production';
     const neutralizationScript = `
 <script>
 (function() {
   'use strict';
-  console.log('🛡️ [Next.js Neutralizer] Iniciando proteção contra erros de RSC...');
+  
+  // 🔇 Sistema de logs condicionais: só loga em desenvolvimento
+  var IS_PRODUCTION = ${isProduction};
+  var debugLog = function() {
+    if (!IS_PRODUCTION) {
+      console.log.apply(console, arguments);
+    }
+  };
+  
+  debugLog('🛡️ [Next.js Neutralizer] Iniciando proteção contra erros de RSC...');
 
   // 1. Interceptar e silenciar erros "Connection closed"
   const originalConsoleError = console.error;
@@ -1435,7 +1445,7 @@ export class CloneService {
     if (errorStr.includes('Connection closed') ||
         errorStr.includes('Failed to fetch RSC payload') ||
         errorStr.includes('RSC payload')) {
-      console.log('🛡️ [Next.js Neutralizer] Erro de RSC silenciado:', errorStr);
+      debugLog('🛡️ [Next.js Neutralizer] Erro de RSC silenciado:', errorStr);
       return; // Silenciar o erro
     }
     originalConsoleError.apply(console, args);
@@ -1447,7 +1457,7 @@ export class CloneService {
     const errorStr = String(message);
     if (errorStr.includes('Connection closed') ||
         errorStr.includes('Failed to fetch RSC payload')) {
-      console.log('🛡️ [Next.js Neutralizer] Erro global de RSC silenciado');
+      debugLog('🛡️ [Next.js Neutralizer] Erro global de RSC silenciado');
       return true; // Prevenir propagação
     }
     if (originalOnError) {
@@ -1461,7 +1471,7 @@ export class CloneService {
     const reason = String(event.reason);
     if (reason.includes('Connection closed') ||
         reason.includes('Failed to fetch RSC payload')) {
-      console.log('🛡️ [Next.js Neutralizer] Promise rejection de RSC silenciada');
+      debugLog('🛡️ [Next.js Neutralizer] Promise rejection de RSC silenciada');
       event.preventDefault();
     }
   });
@@ -1473,7 +1483,7 @@ export class CloneService {
 
     // Detectar requests do Next.js RSC (geralmente têm _rsc no query string)
     if (urlStr.includes('_rsc=') || urlStr.includes('/_next/data/')) {
-      console.log('🛡️ [Next.js Neutralizer] Bloqueando fetch RSC para:', urlStr);
+      debugLog('🛡️ [Next.js Neutralizer] Bloqueando fetch RSC para:', urlStr);
       // Retornar uma Promise que resolve com resposta vazia mas válida
       return Promise.resolve(new Response('{}', {
         status: 200,
@@ -1496,7 +1506,7 @@ export class CloneService {
     window.__NEXT_DATA__.gssp = true; // Fingir que é getServerSideProps
   }
 
-  console.log('✅ [Next.js Neutralizer] Proteção ativada com sucesso!');
+  debugLog('✅ [Next.js Neutralizer] Proteção ativada com sucesso!');
 })();
 </script>`;
 
@@ -2458,11 +2468,27 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   }
 
   private getProtectionScript(): string {
+    // Detectar se está em produção
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     return `
 <script id="cp-protection-script" data-tuglet="true">
 // 🛡️ PROTEÇÃO ANTI-CLONE E ANTI-DEVTOOLS - EXECUTAR IMEDIATAMENTE
 (function() {
   'use strict';
+  
+  // 🔇 Sistema de logs condicionais: só loga em desenvolvimento
+  var IS_PRODUCTION = ${isProduction};
+  var debugLog = function() {
+    if (!IS_PRODUCTION) {
+      console.log.apply(console, arguments);
+    }
+  };
+  var debugWarn = function() {
+    if (!IS_PRODUCTION) {
+      console.warn.apply(console, arguments);
+    }
+  };
 
   // ============================================
   // 🚨 PROTEÇÃO PRIORITÁRIA: Bloquear ANTES de tudo
@@ -2470,6 +2496,36 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 
   // Lista de palavras ofensivas para bloquear (NOTA: 'clone' removido pois conflita com o editor)
   var blockedWords = ['lixo', 'merda', 'fracassado', 'idiota', 'pirata', 'espionar', 'otário', 'babaca', 'corno', 'porra', 'caralho', 'fdp', 'aqui pra tu', 'motoboy', 'colchão'];
+
+  // ============================================
+  // 🛡️ PROTEÇÃO CORS: Bloquear APENAS Cloudflare RUM
+  // ============================================
+  try {
+    var OriginalXMLHttpRequest = window.XMLHttpRequest;
+    window.XMLHttpRequest = function() {
+      var xhr = new OriginalXMLHttpRequest();
+      var originalOpen = xhr.open;
+      
+      xhr.open = function(method, url) {
+        var urlStr = String(url);
+        
+        // Bloquear APENAS /cdn-cgi/rum (Cloudflare RUM que causa erro CORS)
+        if (urlStr.includes('/cdn-cgi/rum')) {
+          debugWarn('🛡️ [CORS Protection] XMLHttpRequest bloqueado:', urlStr.substring(0, 100));
+          // Substituir por endpoint fake que retorna sucesso
+          arguments[1] = 'data:application/json,{}';
+        }
+        
+        return originalOpen.apply(this, arguments);
+      };
+      
+      return xhr;
+    };
+    
+    debugLog('✅ [CORS Protection] XMLHttpRequest interceptado para /cdn-cgi/rum');
+  } catch (e) {
+    debugWarn('⚠️ [CORS Protection] Erro ao interceptar XMLHttpRequest:', e);
+  }
 
   // ============================================
   // 🛡️ PROTEÇÃO ANTI-DEVTOOLS #1: Falsificar dimensões da janela
@@ -2595,14 +2651,14 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     if (type === 'resize' || type === 'orientationchange') {
       // Verificar se o listener tenta acessar outerWidth/innerWidth
       var listenerStr = listener.toString();
-      if (listenerStr.includes('outerWidth') ||
+        if (listenerStr.includes('outerWidth') ||
           listenerStr.includes('outerHeight') ||
           listenerStr.includes('innerWidth') ||
           listenerStr.includes('innerHeight') ||
           listenerStr.includes('location') ||
           listenerStr.includes('bounce') ||
           listenerStr.includes('REDIR')) {
-        console.warn('🛡️ [Protection] Listener de resize malicioso BLOQUEADO');
+        debugWarn('🛡️ [Protection] Listener de resize malicioso BLOQUEADO');
         return function() {}; // Retornar função vazia
       }
 
@@ -2610,7 +2666,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         try {
           listener.apply(this, arguments);
         } catch (e) {
-          console.warn('🛡️ [Protection] Erro em resize listener capturado');
+          debugWarn('🛡️ [Protection] Erro em resize listener capturado');
         }
       };
       return originalAddEventListener.call(this, type, wrappedListener, options);
@@ -2623,7 +2679,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           listenerStr.includes('bounce') ||
           listenerStr.includes('REDIR') ||
           listenerStr.includes('redirect')) {
-        console.warn('🛡️ [Protection] Listener de contextmenu malicioso BLOQUEADO');
+        debugWarn('🛡️ [Protection] Listener de contextmenu malicioso BLOQUEADO');
         return function() {};
       }
     }
@@ -2633,7 +2689,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       var listenerStr = listener.toString();
       if ((listenerStr.includes('f12') || listenerStr.includes('F12')) &&
           (listenerStr.includes('location') || listenerStr.includes('bounce') || listenerStr.includes('REDIR'))) {
-        console.warn('🛡️ [Protection] Listener de keydown anti-devtools BLOQUEADO');
+        debugWarn('🛡️ [Protection] Listener de keydown anti-devtools BLOQUEADO');
         return function() {};
       }
     }
@@ -2685,7 +2741,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   };
   window.MutationObserver.prototype = OriginalMutationObserver.prototype;
 
-  console.log('🛡️ [Protection] Inicializando proteção COMPLETA anti-clone e anti-devtools...');
+  debugLog('🛡️ [Protection] Inicializando proteção COMPLETA anti-clone e anti-devtools...');
 
   // ============================================
   // 🛡️ PROTEÇÃO 1: Fazer parecer que NÃO está em iframe
@@ -2696,7 +2752,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       get: function() { return null; },
       configurable: false
     });
-    console.log('✅ [Protection] frameElement mascarado');
+    debugLog('✅ [Protection] frameElement mascarado');
   } catch (e) {}
 
   try {
@@ -2711,7 +2767,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         configurable: false
       });
     }
-    console.log('✅ [Protection] top/parent mascarados');
+    debugLog('✅ [Protection] top/parent mascarados');
   } catch (e) {}
 
   // ============================================
@@ -2726,7 +2782,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     if (originalLocDescriptor && originalLocDescriptor.get) {
       // Manter location funcional mas proteger contra detecção
     }
-    console.log('✅ [Protection] Hostname protegido');
+    debugLog('✅ [Protection] Hostname protegido');
   } catch (e) {}
 
   // ============================================
@@ -2741,7 +2797,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       var lowerContent = content.toLowerCase();
       for (var i = 0; i < blockedWords.length; i++) {
         if (lowerContent.indexOf(blockedWords[i]) !== -1) {
-          console.warn('🛡️ [Protection] document.write malicioso BLOQUEADO');
+          debugWarn('🛡️ [Protection] document.write malicioso BLOQUEADO');
           return;
         }
       }
@@ -2754,14 +2810,14 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       var lowerContent = content.toLowerCase();
       for (var i = 0; i < blockedWords.length; i++) {
         if (lowerContent.indexOf(blockedWords[i]) !== -1) {
-          console.warn('🛡️ [Protection] document.writeln malicioso BLOQUEADO');
+          debugWarn('🛡️ [Protection] document.writeln malicioso BLOQUEADO');
           return;
         }
       }
     }
     return originalWriteln.apply(document, arguments);
   };
-  console.log('✅ [Protection] document.write protegido');
+  debugLog('✅ [Protection] document.write protegido');
 
   // ============================================
   // 🛡️ PROTEÇÃO 4: Bloquear innerHTML malicioso
@@ -2771,7 +2827,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   // if (originalInnerHTMLDescriptor && originalInnerHTMLDescriptor.set) {
   //   Object.defineProperty(Element.prototype, 'innerHTML', { ... });
   // }
-  console.log('ℹ️ [Protection] innerHTML protection desativada (compatibilidade com editor)');
+  debugLog('ℹ️ [Protection] innerHTML protection desativada (compatibilidade com editor)');
 
   // ============================================
   // 🛡️ PROTEÇÃO 5: Bloquear textContent malicioso
@@ -2785,7 +2841,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           var lowerValue = value.toLowerCase();
           for (var i = 0; i < blockedWords.length; i++) {
             if (lowerValue.indexOf(blockedWords[i]) !== -1) {
-              console.warn('🛡️ [Protection] textContent malicioso BLOQUEADO');
+              debugWarn('🛡️ [Protection] textContent malicioso BLOQUEADO');
               return;
             }
           }
@@ -2794,7 +2850,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       },
       configurable: true
     });
-    console.log('✅ [Protection] textContent protegido');
+    debugLog('✅ [Protection] textContent protegido');
   }
 
   // ============================================
@@ -2806,14 +2862,14 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       var lowerMsg = message.toLowerCase();
       for (var i = 0; i < blockedWords.length; i++) {
         if (lowerMsg.indexOf(blockedWords[i]) !== -1) {
-          console.warn('🛡️ [Protection] Alert malicioso BLOQUEADO');
+          debugWarn('🛡️ [Protection] Alert malicioso BLOQUEADO');
           return;
         }
       }
     }
     return originalAlert.apply(window, arguments);
   };
-  console.log('✅ [Protection] alert protegido');
+  debugLog('✅ [Protection] alert protegido');
 
   // ============================================
   // 🛡️ PROTEÇÃO 7: Bloquear redirecionamentos maliciosos
@@ -2838,7 +2894,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       Object.defineProperty(window.location, 'replace', {
         value: function(url) {
           if (isBlockedUrl(url)) {
-            console.warn('🛡️ [Protection] location.replace BLOQUEADO:', url);
+            debugWarn('🛡️ [Protection] location.replace BLOQUEADO:', url);
             return;
           }
           return originalReplace.apply(window.location, arguments);
@@ -2856,7 +2912,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       Object.defineProperty(window.location, 'assign', {
         value: function(url) {
           if (isBlockedUrl(url)) {
-            console.warn('🛡️ [Protection] location.assign BLOQUEADO:', url);
+            debugWarn('🛡️ [Protection] location.assign BLOQUEADO:', url);
             return;
           }
           return originalAssign.apply(window.location, arguments);
@@ -2883,10 +2939,10 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         },
         set: function(value) {
           if (isBlockedUrl(value)) {
-            console.warn('🛡️ [Protection] Tentativa de redirect BLOQUEADA:', value);
+            debugWarn('🛡️ [Protection] Tentativa de redirect BLOQUEADA:', value);
             return;
           }
-          console.warn('🛡️ [Protection] Tentativa de redirect via location set BLOQUEADA:', value);
+          debugWarn('🛡️ [Protection] Tentativa de redirect via location set BLOQUEADA:', value);
         },
         configurable: true
       });
@@ -2915,16 +2971,65 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   window.addEventListener('error', function(event) {
     if (event.message) {
       var msg = event.message.toLowerCase();
+      
+      // Bloquear erros de cross-origin
       if (msg.indexOf('location') !== -1 || msg.indexOf('blocked') !== -1 || msg.indexOf('cross-origin') !== -1) {
-        console.warn('⚠️ [Protection] Erro cross-origin suprimido');
+        debugWarn('⚠️ [Protection] Erro cross-origin suprimido');
+        event.preventDefault();
+        return true;
+      }
+      
+      // Bloquear erros de sintaxe JavaScript (geralmente causados por HTML sendo interpretado como JS)
+      if (msg.indexOf('unexpected token') !== -1 || 
+          msg.indexOf('syntaxerror') !== -1 ||
+          msg.indexOf('unexpected identifier') !== -1) {
+        debugWarn('⚠️ [Protection] Erro de sintaxe JavaScript suprimido:', msg.substring(0, 100));
+        event.preventDefault();
+        return true;
+      }
+      
+      // Bloquear erros de CORS/Network
+      if (msg.indexOf('failed to fetch') !== -1 || 
+          msg.indexOf('network error') !== -1 ||
+          msg.indexOf('networkerror') !== -1 ||
+          msg.indexOf('cors') !== -1) {
+        debugWarn('⚠️ [Protection] Erro de rede/CORS suprimido');
         event.preventDefault();
         return true;
       }
     }
+    
+    // Interceptar erros de loading de scripts
+    if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {
+      debugWarn('⚠️ [Protection] Erro ao carregar recurso externo suprimido:', event.target.src || event.target.href);
+      event.preventDefault();
+      return true;
+    }
   }, true);
 
   // ============================================
-  // 🛡️ PROTEÇÃO 10: Remover conteúdo ofensivo existente
+  // 🛡️ PROTEÇÃO 10: Interceptar promessas rejeitadas
+  // ============================================
+  window.addEventListener('unhandledrejection', function(event) {
+    var reason = String(event.reason || '').toLowerCase();
+    
+    // Bloquear erros relacionados a CORS, fetch, syntax errors
+    if (reason.indexOf('cors') !== -1 ||
+        reason.indexOf('failed to fetch') !== -1 ||
+        reason.indexOf('network error') !== -1 ||
+        reason.indexOf('syntaxerror') !== -1 ||
+        reason.indexOf('unexpected token') !== -1 ||
+        reason.indexOf('cross-origin') !== -1 ||
+        reason.indexOf('blocked') !== -1) {
+      debugWarn('⚠️ [Protection] Promise rejection suprimida:', reason.substring(0, 100));
+      event.preventDefault();
+    }
+  });
+
+  debugLog('✅ [Protection] Interceptadores de erro configurados');
+
+  // ============================================
+  // 🛡️ PROTEÇÃO 11: Remover conteúdo ofensivo existente
   // ============================================
   function removeOffensiveContent() {
     var allElements = document.querySelectorAll('*');
@@ -2944,7 +3049,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
             text.indexOf('aqui pra tu') !== -1 ||
             text.indexOf('espionar') !== -1
           )) {
-            console.warn('🛡️ [Protection] Removendo conteúdo ofensivo:', el.tagName);
+            debugWarn('🛡️ [Protection] Removendo conteúdo ofensivo:', el.tagName);
             el.remove();
             break;
           }
@@ -2965,18 +3070,40 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   setTimeout(removeOffensiveContent, 1500);
   setTimeout(removeOffensiveContent, 3000);
 
-  console.log('✅ [Protection] Proteção COMPLETA ativada');
+  debugLog('✅ [Protection] Proteção COMPLETA ativada');
 })();
 </script>
 `;
   }
 
   private getEditModeScript(): string {
+    // Detectar se está em produção
+    const isProduction = process.env.NODE_ENV === 'production';
+    
     return `
 <script id="cp-editor-script" data-tuglet="true">
 (function() {
   'use strict';
-  console.log('🎨 [Tuglet Editor] Inicializando editor visual...');
+  
+  // 🔇 Sistema de logs condicionais: só loga em desenvolvimento
+  var IS_PRODUCTION = ${isProduction};
+  var debugLog = function() {
+    if (!IS_PRODUCTION) {
+      console.log.apply(console, arguments);
+    }
+  };
+  var debugWarn = function() {
+    if (!IS_PRODUCTION) {
+      console.warn.apply(console, arguments);
+    }
+  };
+  var debugError = function() {
+    if (!IS_PRODUCTION) {
+      console.error.apply(console, arguments);
+    }
+  };
+  
+  debugLog('🎨 [Tuglet Editor] Inicializando editor visual...');
 
   let hoveredElement = null;
   let selectedElement = null;
@@ -2997,7 +3124,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       );
       return result.singleNodeValue;
     } catch (e) {
-      console.error('❌ Erro ao encontrar elemento por XPath:', xpath, e);
+      debugError('❌ Erro ao encontrar elemento por XPath:', xpath, e);
       return null;
     }
   }
@@ -3040,7 +3167,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       }
 
       if (!videoId) {
-        console.warn('⚠️ [YouTube] Não foi possível extrair ID do vídeo:', url);
+        debugWarn('⚠️ [YouTube] Não foi possível extrair ID do vídeo:', url);
         return url;
       }
 
@@ -3074,7 +3201,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 
         embedUrl = urlObj.toString();
 
-        console.log('🎬 [YouTube] URL Elementor atualizada (cross-origin):', {
+        debugLog('🎬 [YouTube] URL Elementor atualizada (cross-origin):', {
           original: url.substring(0, 80),
           videoId: videoId,
           embed: embedUrl
@@ -3084,7 +3211,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         const origin = getYouTubeOrigin();
         embedUrl = \`https://www.youtube.com/embed/\${videoId}?enablejsapi=1&origin=\${origin}&rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0\`;
 
-        console.log('🎬 [YouTube] URL universal criada:', {
+        debugLog('🎬 [YouTube] URL universal criada:', {
           original: url.substring(0, 80),
           videoId: videoId,
           embed: embedUrl,
@@ -3094,7 +3221,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 
       return embedUrl;
     } catch (e) {
-      console.error('❌ [YouTube] Erro ao converter URL:', e);
+      debugError('❌ [YouTube] Erro ao converter URL:', e);
       return url;
     }
   }
@@ -3118,17 +3245,17 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       // Detectar se estamos no frontend (porta 5173) e usar backend (porta 3333)
       if (currentPort === '5173') {
         const backendOrigin = \`\${window.location.protocol}//\${currentHost}:3333\`;
-        console.log('🎬 [YouTube] Detectado frontend 5173, usando backend 3333:', backendOrigin);
+        debugLog('🎬 [YouTube] Detectado frontend 5173, usando backend 3333:', backendOrigin);
         return backendOrigin;
       }
 
       // 🎯 Se já estamos na porta correta ou não conseguiu detectar
       const fallbackOrigin = \`\${window.location.protocol}//\${currentHost}:\${currentPort || '3333'}\`;
-      console.log('🎬 [YouTube] Usando origem atual:', fallbackOrigin);
+      debugLog('🎬 [YouTube] Usando origem atual:', fallbackOrigin);
       return fallbackOrigin;
 
     } catch (e) {
-      console.warn('⚠️ [YouTube] Erro ao detectar origem, usando fallback');
+      debugWarn('⚠️ [YouTube] Erro ao detectar origem, usando fallback');
       // 🛡️ Fallback universal que funciona na maioria dos casos
       return 'https://localhost:3333';
     }
@@ -3152,7 +3279,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       Object.entries(essentialAttributes).forEach(([attr, value]) => {
         if (!iframe.hasAttribute(attr)) {
           iframe.setAttribute(attr, value);
-          console.log(\`🎬 [YouTube] Atributo "\${attr}" configurado: \${value}\`);
+          debugLog(\`🎬 [YouTube] Atributo "\${attr}" configurado: \${value}\`);
         }
       });
 
@@ -3167,10 +3294,10 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
             urlObj.searchParams.set('origin', properOrigin);
             const updatedSrc = urlObj.toString();
             iframe.setAttribute('src', updatedSrc);
-            console.log('🎬 [YouTube] Origem corrigida para:', properOrigin);
+            debugLog('🎬 [YouTube] Origem corrigida para:', properOrigin);
           }
         } catch (e) {
-          console.warn('⚠️ [YouTube] Erro ao ajustar origem:', e.message);
+          debugWarn('⚠️ [YouTube] Erro ao ajustar origem:', e.message);
         }
       }
 
@@ -3191,17 +3318,17 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           if (removedParams.length > 0) {
             const cleanedSrc = urlObj.toString();
             iframe.setAttribute('src', cleanedSrc);
-            console.log('🎬 [YouTube] Parâmetros problemáticos removidos:', removedParams);
+            debugLog('🎬 [YouTube] Parâmetros problemáticos removidos:', removedParams);
           }
         } catch (e) {
-          console.warn('⚠️ [YouTube] Erro ao limpar parâmetros:', e.message);
+          debugWarn('⚠️ [YouTube] Erro ao limpar parâmetros:', e.message);
         }
       }
 
-      console.log('✅ [YouTube] Iframe preparado para ambiente universal');
+      debugLog('✅ [YouTube] Iframe preparado para ambiente universal');
 
     } catch (e) {
-      console.error('❌ [YouTube] Erro ao preparar iframe universal:', e);
+      debugError('❌ [YouTube] Erro ao preparar iframe universal:', e);
     }
   }
 
@@ -3225,7 +3352,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       const videoClasses = ['elementor-video', 'wp-video', 'video-iframe', 'vc_video'];
       for (let i = 0; i < videoClasses.length; i++) {
         if (className.includes(videoClasses[i])) {
-          console.log('🎬 [isVideoElement] Iframe detectado por classe:', videoClasses[i]);
+          debugLog('🎬 [isVideoElement] Iframe detectado por classe:', videoClasses[i]);
           return true;
         }
       }
@@ -3343,11 +3470,11 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     const className = (element.className || '').toLowerCase();
     const id = (element.id || '').toLowerCase();
     
-    console.log('🎠 [detectSlider] Verificando elemento:', { tagName: element.tagName, className, id });
+    debugLog('🎠 [detectSlider] Verificando elemento:', { tagName: element.tagName, className, id });
     
     // 1. Swiper (mais comum, usado pelo Elementor)
     if (className.includes('swiper') || className.includes('elementor-swiper')) {
-      console.log('🎠 [detectSlider] Swiper detectado!');
+      debugLog('🎠 [detectSlider] Swiper detectado!');
       
       // Tentar obter instância do Swiper
       let swiperInstance = null;
@@ -3358,10 +3485,10 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         if (element.swiper) {
           swiperInstance = element.swiper;
           config = swiperInstance.params || {};
-          console.log('🎠 [Swiper] Instância encontrada:', config);
+          debugLog('🎠 [Swiper] Instância encontrada:', config);
         }
       } catch (e) {
-        console.warn('⚠️ [Swiper] Erro ao acessar instância:', e);
+        debugWarn('⚠️ [Swiper] Erro ao acessar instância:', e);
       }
       
       return {
@@ -3382,7 +3509,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     
     // 2. Slick Slider (jQuery)
     if (className.includes('slick-slider') || className.includes('slick-list')) {
-      console.log('🎠 [detectSlider] Slick detectado!');
+      debugLog('🎠 [detectSlider] Slick detectado!');
       
       let config = {};
       try {
@@ -3391,11 +3518,11 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           const slickData = window.jQuery(element).slick('getSlick');
           if (slickData && slickData.options) {
             config = slickData.options;
-            console.log('🎠 [Slick] Configurações encontradas:', config);
+            debugLog('🎠 [Slick] Configurações encontradas:', config);
           }
         }
       } catch (e) {
-        console.warn('⚠️ [Slick] Erro ao acessar configurações:', e);
+        debugWarn('⚠️ [Slick] Erro ao acessar configurações:', e);
       }
       
       return {
@@ -3416,7 +3543,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     
     // 3. Owl Carousel (jQuery)
     if (className.includes('owl-carousel')) {
-      console.log('🎠 [detectSlider] Owl Carousel detectado!');
+      debugLog('🎠 [detectSlider] Owl Carousel detectado!');
       
       let config = {};
       try {
@@ -3424,11 +3551,11 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           const owlData = window.jQuery(element).data('owl.carousel');
           if (owlData && owlData.options) {
             config = owlData.options;
-            console.log('🎠 [Owl] Configurações encontradas:', config);
+            debugLog('🎠 [Owl] Configurações encontradas:', config);
           }
         }
       } catch (e) {
-        console.warn('⚠️ [Owl] Erro ao acessar configurações:', e);
+        debugWarn('⚠️ [Owl] Erro ao acessar configurações:', e);
       }
       
       return {
@@ -3448,7 +3575,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     
     // 4. Glide.js
     if (className.includes('glide')) {
-      console.log('🎠 [detectSlider] Glide detectado!');
+      debugLog('🎠 [detectSlider] Glide detectado!');
       
       return {
         type: 'glide',
@@ -3464,7 +3591,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     
     // 5. Flickity
     if (className.includes('flickity')) {
-      console.log('🎠 [detectSlider] Flickity detectado!');
+      debugLog('🎠 [detectSlider] Flickity detectado!');
       
       let config = {};
       try {
@@ -3487,7 +3614,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       };
     }
     
-    console.log('🎠 [detectSlider] Nenhum slider detectado');
+    debugLog('🎠 [detectSlider] Nenhum slider detectado');
     return null;
   }
 
@@ -3522,17 +3649,17 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     // Verificar se elemento já tem max-width definido (pode já estar responsivo)
     const computedStyle = window.getComputedStyle(element);
     if (property === 'width' && (computedStyle.maxWidth && computedStyle.maxWidth !== 'none')) {
-      console.log('📱 [MobileFix] Elemento já tem max-width, pulando ajuste');
+      debugLog('📱 [MobileFix] Elemento já tem max-width, pulando ajuste');
       return;
     }
     
-    console.log(\`📱 [MobileFix] Detectado valor fixo: \${property} = \${value}\`);
+    debugLog(\`📱 [MobileFix] Detectado valor fixo: \${property} = \${value}\`);
     
     // Criar ID único para o elemento (se não tiver)
     if (!element.id) {
       const uniqueId = 'cp-element-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
       element.id = uniqueId;
-      console.log(\`📱 [MobileFix] ID criado para elemento: \${uniqueId}\`);
+      debugLog(\`📱 [MobileFix] ID criado para elemento: \${uniqueId}\`);
     }
     
     // Usar um único elemento <style> para todos os ajustes mobile
@@ -3545,7 +3672,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       existingStyle.id = mobileStyleId;
       existingStyle.setAttribute('data-cp-mobile-fix', 'true');
       document.head.appendChild(existingStyle);
-      console.log('📱 [MobileFix] Estilo mobile global criado');
+      debugLog('📱 [MobileFix] Estilo mobile global criado');
     }
     
     // Adicionar/atualizar regras CSS para mobile
