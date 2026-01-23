@@ -27,12 +27,29 @@ A API estará disponível em `http://localhost:3333`
 
 ## 🔧 Configuração
 
-Copie `.env.example` para `.env` e configure:
+### Sistema de Alternância de Ambientes
+
+Este projeto possui um sistema automatizado para alternar entre desenvolvimento e produção. Veja o arquivo `ENV-SWITCH.md` na raiz do projeto para instruções completas.
+
+**Uso rápido:**
+```bash
+# Alternar para desenvolvimento
+npm run env:dev
+
+# Alternar para produção
+npm run env:prod
+```
+
+### Configuração Manual (Alternativa)
+
+Se preferir configurar manualmente, copie `.env.dev.example` para `.env.dev` e `.env.prod.example` para `.env.prod`, depois ajuste os valores:
 
 ```bash
 PORT=3333
 JWT_SECRET=your-secret-key
 SQLITE_DB=saas-dev.sqlite
+NODE_ENV=development
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 
 # Kiwify Webhook
 KIWIFY_TOKEN=seu-token
@@ -47,6 +64,8 @@ KIWIFY_PRODUCT_ID=seu-product-id
 | `npm run build` | Compila TypeScript |
 | `npm run start` | Executa versão compilada |
 | `npm run start:prod` | Executa em produção |
+| `npm run env:dev` | Alterna para ambiente de desenvolvimento |
+| `npm run env:prod` | Alterna para ambiente de produção |
 | `npm test` | Executa testes |
 | `npm run test:watch` | Testes em modo watch |
 | `npm run test:cov` | Relatório de cobertura |
