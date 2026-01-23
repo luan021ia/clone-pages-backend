@@ -27,30 +27,71 @@ A API estará disponível em `http://localhost:3333`
 
 ## 🔧 Configuração
 
-### Sistema de Alternância de Ambientes
+### Configuração de Ambientes
 
-Este projeto possui um sistema automatizado para alternar entre desenvolvimento e produção. Veja o arquivo `ENV-SWITCH.md` na raiz do projeto para instruções completas.
+Copie `.env.example` para `.env`:
 
-**Uso rápido:**
 ```bash
-# Alternar para desenvolvimento
-npm run env:dev
-
-# Alternar para produção
-npm run env:prod
+cp .env.example .env
 ```
 
-### Configuração Manual (Alternativa)
+### 🔵 Para DESENVOLVIMENTO:
 
-Se preferir configurar manualmente, copie `.env.dev.example` para `.env.dev` e `.env.prod.example` para `.env.prod`, depois ajuste os valores:
+No arquivo `.env`, **descomente** a seção `🔵 DESENVOLVIMENTO` e **comente** a seção `🟢 PRODUÇÃO`:
 
 ```bash
-PORT=3333
-JWT_SECRET=your-secret-key
-SQLITE_DB=saas-dev.sqlite
+# ============================================
+# 🔵 DESENVOLVIMENTO
+# ============================================
 NODE_ENV=development
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+PORT=3333
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+SQLITE_DB=saas-dev.sqlite
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+ALLOW_LOCALHOST=true
 
+# ============================================
+# 🟢 PRODUÇÃO (COMENTADO)
+# ============================================
+# NODE_ENV=production
+# PORT=3333
+# JWT_SECRET=seu-jwt-secret-super-seguro-de-producao
+# SQLITE_DB=/data/saas-dev.sqlite
+# ALLOWED_ORIGINS=https://clonepages.fabricadelowticket.com.br,https://www.clonepages.fabricadelowticket.com.br
+# ALLOW_LOCALHOST=false
+```
+
+### 🟢 Para PRODUÇÃO:
+
+No arquivo `.env`, **descomente** a seção `🟢 PRODUÇÃO` e **comente** a seção `🔵 DESENVOLVIMENTO`:
+
+```bash
+# ============================================
+# 🔵 DESENVOLVIMENTO (COMENTADO)
+# ============================================
+# NODE_ENV=development
+# PORT=3333
+# JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+# SQLITE_DB=saas-dev.sqlite
+# ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173
+# ALLOW_LOCALHOST=true
+
+# ============================================
+# 🟢 PRODUÇÃO
+# ============================================
+NODE_ENV=production
+PORT=3333
+JWT_SECRET=seu-jwt-secret-super-seguro-de-producao
+SQLITE_DB=/data/saas-dev.sqlite
+ALLOWED_ORIGINS=https://clonepages.fabricadelowticket.com.br,https://www.clonepages.fabricadelowticket.com.br
+ALLOW_LOCALHOST=false
+```
+
+### ⚙️ Configurações Adicionais
+
+Configure também as variáveis globais (não precisam ser alteradas entre ambientes):
+
+```bash
 # Kiwify Webhook
 KIWIFY_TOKEN=seu-token
 KIWIFY_PRODUCT_ID=seu-product-id
@@ -64,8 +105,6 @@ KIWIFY_PRODUCT_ID=seu-product-id
 | `npm run build` | Compila TypeScript |
 | `npm run start` | Executa versão compilada |
 | `npm run start:prod` | Executa em produção |
-| `npm run env:dev` | Alterna para ambiente de desenvolvimento |
-| `npm run env:prod` | Alterna para ambiente de produção |
 | `npm test` | Executa testes |
 | `npm run test:watch` | Testes em modo watch |
 | `npm run test:cov` | Relatório de cobertura |
