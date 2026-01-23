@@ -44,9 +44,19 @@ async function bootstrap() {
   else if (process.env.FRONTEND_URL) {
     allowedOrigins = [process.env.FRONTEND_URL];
   }
-  // 3. Fallback para desenvolvimento local
+  // 3. Fallback baseado no ambiente
   else {
-    allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      // Em produção, incluir domínios de produção por padrão
+      allowedOrigins = [
+        'https://clonepages.fabricadelowticket.com.br',
+        'https://www.clonepages.fabricadelowticket.com.br'
+      ];
+    } else {
+      // Em desenvolvimento, usar localhost
+      allowedOrigins = ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+    }
   }
 
   // 4. Em desenvolvimento, permitir localhost automaticamente se ALLOW_LOCALHOST=true
@@ -88,6 +98,11 @@ async function bootstrap() {
         return callback(null, true);
       }
 
+      // Em produção, permitir domínios fabricadelowticket.com.br
+      if (!isDevelopment && origin.includes('fabricadelowticket.com.br')) {
+        return callback(null, true);
+      }
+
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -103,7 +118,23 @@ async function bootstrap() {
   // Middleware adicional para garantir CORS em todas as rotas
   app.use((req: any, res: any, next: any) => {
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
+    
+    // Verificar se a origem deve ser permitida
+    let shouldAllow = false;
+    if (origin) {
+      if (allowedOrigins.includes(origin)) {
+        shouldAllow = true;
+      } else if (isDevelopment && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) {
+        shouldAllow = true;
+      } else if (!isDevelopment && origin.includes('fabricadelowticket.com.br')) {
+        shouldAllow = true;
+      }
+    } else {
+      // Sem origem (ex: Postman, mobile apps)
+      shouldAllow = true;
+    }
+    
+    if (shouldAllow && origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
