@@ -6,22 +6,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap() {
-  // 🔄 Copiar banco SQLite do repositório para volume persistente se não existir
-  const dbSource = path.join(process.cwd(), 'saas-dev.sqlite');
+  // Em produção: garantir apenas que o diretório /data existe.
+  // NUNCA copiar o banco do repositório para /data — isso sobrescreveria dados
+  // criados online (usuários, etc.) com uma versão antiga do banco versionada no Git.
+  // Se /data/saas-dev.sqlite não existir, o TypeORM criará um banco novo (synchronize: true).
   const dbTarget = process.env.SQLITE_DB || '/data/saas-dev.sqlite';
-  
-  if (dbTarget.startsWith('/data/') && !fs.existsSync(dbTarget)) {
+  if (dbTarget.startsWith('/data/')) {
     try {
       const dataDir = path.dirname(dbTarget);
       if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
       }
-      
-      if (fs.existsSync(dbSource)) {
-        fs.copyFileSync(dbSource, dbTarget);
-      }
     } catch (error) {
-      // Silencioso - banco será criado automaticamente pelo TypeORM
+      // Silencioso - TypeORM pode falhar ao criar o arquivo depois
     }
   }
 

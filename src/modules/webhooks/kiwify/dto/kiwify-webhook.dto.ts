@@ -20,7 +20,8 @@ export class ProductDto {
 export class SubscriptionPlanDto {
   id?: string;
   name?: string;
-  frequency?: 'monthly' | 'yearly' | 'weekly' | 'annual' | 'anual';
+  /** Pode vir em PT/EN/ES: monthly, mensal, month, mês, yearly, anual, year, etc. */
+  frequency?: string;
   qty_charges?: number;
 }
 
@@ -49,7 +50,9 @@ export class KiwifyWebhookDto {
   updated_at?: string;
   approved_date?: string;
   refunded_at?: string | null;
-  
+  /** ID do produto (pode vir na raiz ou em Product.product_id) */
+  product_id?: string;
+
   Customer?: CustomerDto;
   Product?: ProductDto;
   Subscription?: SubscriptionDto;

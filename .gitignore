@@ -18,9 +18,9 @@ build/
 .env.test.local
 .env.production.local
 
-# Database
-# Exceção: banco de produção deve ser versionado
-!saas-dev.sqlite
+# Database (não versionar — evita sobrescrever dados de produção no deploy)
+saas-dev.sqlite
+*.sqlite
 *.sqlite3
 *.db
 

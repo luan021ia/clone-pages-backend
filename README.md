@@ -153,6 +153,8 @@ git push origin main
 
 O Dokploy detecta o push e faz o build automaticamente.
 
+**⚠️ Para não perder usuários/dados a cada deploy:** configure um **volume persistente** na aplicação do backend no Dokploy (aba **Advanced → Volumes**, Mount Path = **`/data`**). Veja o guia: [docs/DOKPLOY-VOLUME-PERSISTENTE.md](docs/DOKPLOY-VOLUME-PERSISTENTE.md).
+
 ### Deploy com Frontend Integrado (Servidor único)
 
 Se você quer que o backend sirva os arquivos estáticos do frontend:
@@ -201,10 +203,13 @@ Configure no painel do Dokploy ou em `.env`:
 ```bash
 PORT=3333
 JWT_SECRET=sua-chave-secreta
+SQLITE_DB=/data/saas-dev.sqlite
 ALLOWED_ORIGINS=https://clonepages.fabricadelowticket.com.br
 KIWIFY_TOKEN=seu-token
 KIWIFY_PRODUCT_ID=seu-product-id
 ```
+
+(O volume em `/data` deve estar configurado em Advanced → Volumes para o banco persistir.)
 
 ### Verificar Deploy
 

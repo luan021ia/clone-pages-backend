@@ -60,28 +60,31 @@ export class KiwifyService {
    */
   determineAction(orderStatus: string): WebhookAction {
     const statusMap: Record<string, WebhookAction> = {
-      // ATIVAR ACESSO
+      // COMPRA APROVADA → Ativar acesso
       'paid': WebhookAction.ACTIVATE,
       'approved': WebhookAction.ACTIVATE,
-      
-      // RENOVAR ACESSO
+      'compra_aprovada': WebhookAction.ACTIVATE,
+
+      // ASSINATURA RENOVADA → Renovar (somar dias)
       'subscription_renewed': WebhookAction.RENEW,
       'renewed': WebhookAction.RENEW,
-      
-      // ALERTAR (não desativa)
+
+      // ASSINATURA ATRASADA → Alertar, manter acesso (Kiwify faz retentativas)
       'overdue': WebhookAction.ALERT_OVERDUE,
       'delayed': WebhookAction.ALERT_OVERDUE,
       'waiting_payment': WebhookAction.ALERT_OVERDUE,
-      
-      // DESATIVAR - Reembolso
+      'subscription_late': WebhookAction.ALERT_OVERDUE,
+
+      // REEMBOLSO → Desativar imediatamente
       'refunded': WebhookAction.DEACTIVATE_REFUND,
-      
-      // DESATIVAR - Chargeback
+      'compra_reembolsada': WebhookAction.DEACTIVATE_REFUND,
+
+      // CHARGEBACK → Desativar imediatamente
       'chargedback': WebhookAction.DEACTIVATE_CHARGEBACK,
       'chargeback': WebhookAction.DEACTIVATE_CHARGEBACK,
       'dispute': WebhookAction.DEACTIVATE_CHARGEBACK,
-      
-      // DESATIVAR - Cancelamento
+
+      // ASSINATURA CANCELADA → Desativar
       'canceled': WebhookAction.DEACTIVATE_CANCELED,
       'subscription_canceled': WebhookAction.DEACTIVATE_CANCELED,
     };
@@ -89,66 +92,72 @@ export class KiwifyService {
     return statusMap[orderStatus] || WebhookAction.IGNORE;
   }
 
+  /** Valores de frequency que indicam plano ANUAL (PT, EN, ES) */
+  private static readonly FREQUENCY_YEARLY = [
+    'yearly', 'annual', 'anual', 'year', 'ano', 'años', 'anuales',
+  ];
+
+  /** Valores de frequency que indicam plano MENSAL (PT, EN, ES) */
+  private static readonly FREQUENCY_MONTHLY = [
+    'monthly', 'mensal', 'month', 'mês', 'mes', 'meses', 'mensual', 'mensuales',
+  ];
+
   /**
    * Determina o plano do usuário com prioridade:
-   * 1. Subscription.plan.frequency (mais confiável)
+   * 1. Subscription.plan.frequency (mais confiável) — aceita PT/EN/ES (mês, ano, mensal, anual, etc.)
    * 2. Product.offer_id (backup)
    * 3. full_price (último recurso)
    */
   determinePlan(data: KiwifyWebhookDto): PlanInfo {
-    // 1. Frequency (mais confiável)
-    const frequency = data.Subscription?.plan?.frequency;
-    if (frequency) {
-      const frequencyLower = frequency.toLowerCase();
-      if (['yearly', 'annual', 'anual'].includes(frequencyLower)) {
-        this.logger.log('Plano identificado via frequency: yearly (365 dias)');
+    // 1. Frequency (mais confiável) — normalizar: trim, lowercase, remover acentos
+    const rawFrequency = data.Subscription?.plan?.frequency;
+    if (rawFrequency && typeof rawFrequency === 'string') {
+      const normalized = rawFrequency.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      if (KiwifyService.FREQUENCY_YEARLY.some((f) => normalized.includes(f) || f === normalized)) {
+        this.logger.log(`Plano identificado via frequency: yearly (365 dias) [raw: ${rawFrequency}]`);
         return { plano: 'yearly', dias: 365 };
       }
-      if (['monthly', 'mensal'].includes(frequencyLower)) {
-        this.logger.log('Plano identificado via frequency: monthly (30 dias)');
+      if (KiwifyService.FREQUENCY_MONTHLY.some((f) => normalized.includes(f) || f === normalized)) {
+        this.logger.log(`Plano identificado via frequency: monthly (30 dias) [raw: ${rawFrequency}]`);
         return { plano: 'monthly', dias: 30 };
       }
     }
-    
+
     // 2. Offer ID (se configurado)
     const offerId = data.Product?.offer_id;
-    const offerIdsAnual = this.configService.get<string>('KIWIFY_OFFER_ID_ANUAL')?.split(',') || [];
-    const offerIdsMensal = this.configService.get<string>('KIWIFY_OFFER_ID_MENSAL')?.split(',') || [];
-    
+    const offerIdsAnual = this.configService.get<string>('KIWIFY_OFFER_ID_ANUAL')?.split(',').map((s) => s.trim()) || [];
+    const offerIdsMensal = this.configService.get<string>('KIWIFY_OFFER_ID_MENSAL')?.split(',').map((s) => s.trim()) || [];
+
     if (offerId) {
-      if (offerIdsAnual.includes(offerId.trim())) {
+      const offerIdTrim = offerId.trim();
+      if (offerIdsAnual.includes(offerIdTrim)) {
         this.logger.log('Plano identificado via offer_id: yearly (365 dias)');
         return { plano: 'yearly', dias: 365 };
       }
-      if (offerIdsMensal.includes(offerId.trim())) {
+      if (offerIdsMensal.includes(offerIdTrim)) {
         this.logger.log('Plano identificado via offer_id: monthly (30 dias)');
         return { plano: 'monthly', dias: 30 };
       }
     }
-    
-    // 3. Preço (fallback) - Usando os preços atualizados
+
+    // 3. Preço (fallback)
     const valor = data.full_price || 0;
     this.logger.warn(`⚠️ Usando fallback de preço: R$ ${valor}`);
-    
-    // Anual: R$ 297 | Mensal: R$ 67
-    // Considerando valor >= 250 como anual (mais seguro que 200)
-    return valor >= 250
-      ? { plano: 'yearly', dias: 365 }
-      : { plano: 'monthly', dias: 30 };
+    return valor >= 250 ? { plano: 'yearly', dias: 365 } : { plano: 'monthly', dias: 30 };
   }
 
   /**
-   * Verifica se o produto é válido (filtro opcional)
+   * Verifica se o produto é válido (filtro opcional).
+   * Aceita product_id em Product.product_id ou na raiz do payload (conforme doc Kiwify).
    */
   isValidProduct(data: KiwifyWebhookDto): boolean {
-    const targetProductId = this.configService.get<string>('KIWIFY_PRODUCT_ID');
-    
-    // Se não estiver configurado, aceita qualquer produto
+    const targetProductId = this.configService.get<string>('KIWIFY_PRODUCT_ID')?.trim();
+
     if (!targetProductId) {
       return true;
     }
 
-    const productId = data.Product?.product_id;
+    const productId = (data.Product?.product_id ?? data.product_id)?.trim();
     return productId === targetProductId;
   }
 
