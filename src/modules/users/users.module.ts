@@ -23,6 +23,6 @@ import { SessionGuard } from '../../common/guards/session.guard';
     SessionGuard,
   ],
   controllers: [UsersController],
-  exports: [SessionGuard, UsersService],
+  exports: [SessionGuard, UsersService, JwtModule, 'IUserRepository'],
 })
 export class UsersModule {}

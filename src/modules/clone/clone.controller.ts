@@ -1,13 +1,16 @@
-import { Controller, Get, Post, Query, Body, Res, HttpException, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, Res, HttpException, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { CloneService } from './clone.service';
+import { CloneHistoryService } from './clone-history.service';
 import { ExportService, ExportOptions } from './export.service';
+import { SessionGuard } from '../../common/guards/session.guard';
 
 @Controller()
 export class CloneController {
   constructor(
     private readonly cloneService: CloneService,
-    private readonly exportService: ExportService
+    private readonly exportService: ExportService,
+    private readonly cloneHistoryService: CloneHistoryService,
   ) {}
 
   /**
@@ -342,6 +345,33 @@ export class CloneController {
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
+  }
+
+  /**
+   * Histórico de clonagens: registrar URL clonada (protegido por JWT)
+   */
+  @Post('clone/history')
+  @UseGuards(SessionGuard)
+  async createCloneHistory(@Req() req: Request & { user: { id: string } }, @Body('url') url: string) {
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      throw new HttpException('url is required', HttpStatus.BAD_REQUEST);
+    }
+    const entry = await this.cloneHistoryService.create(req.user.id, url.trim());
+    return { id: entry.id, url: entry.url, createdAt: entry.createdAt };
+  }
+
+  /**
+   * Histórico de clonagens: listar últimos N dias do usuário (protegido por JWT)
+   */
+  @Get('clone/history')
+  @UseGuards(SessionGuard)
+  async getCloneHistory(
+    @Req() req: Request & { user: { id: string } },
+    @Query('days') days?: string,
+  ) {
+    const daysNum = days ? Math.min(Math.max(1, parseInt(days, 10) || 30), 365) : 30;
+    const items = await this.cloneHistoryService.findByUser(req.user.id, daysNum);
+    return { items };
   }
 }
 

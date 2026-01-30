@@ -3109,6 +3109,7 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
   let selectedElement = null;
   const HIGHLIGHT_CLASS = 'cp-hover-highlight';
   const SELECTED_CLASS = 'cp-selected';
+  var currentEditorViewport = 'desktop';
 
   // ============================================
   // 🎯 UTILIDADE: Encontrar elemento por XPath
@@ -3728,6 +3729,119 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     }
     
     console.log(\`✅ [MobileFix] Ajuste mobile aplicado para #\${element.id}\`);
+  }
+
+  // ============================================
+  // 📱🖥️ OVERRIDES MOBILE (viewport === 'mobile' no LayoutTab)
+  // ============================================
+  var CP_RESPONSIVE_OVERRIDES_ID = 'cp-responsive-overrides';
+  var MOBILE_MEDIA = '@media (max-width: 768px)';
+
+  function ensureElementCpId(element) {
+    var id = element.getAttribute('data-cp-id');
+    if (id) return '[data-cp-id="' + id + '"]';
+    if (element.id) {
+      var raw = element.id;
+      var out = '';
+      for (var k = 0; k < raw.length; k++) {
+        var c = raw[k];
+        if (/[a-zA-Z0-9_-]/.test(c)) out += c; else out += '\\\\' + c;
+      }
+      return '#' + out;
+    }
+    id = 'cp-el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    element.setAttribute('data-cp-id', id);
+    return '[data-cp-id="' + id + '"]';
+  }
+
+  function getOrCreateResponsiveOverridesStyle() {
+    var el = document.getElementById(CP_RESPONSIVE_OVERRIDES_ID);
+    if (!el) {
+      el = document.createElement('style');
+      el.id = CP_RESPONSIVE_OVERRIDES_ID;
+      el.setAttribute('data-cp-user-styles', 'true');
+      document.head.appendChild(el);
+    }
+    return el;
+  }
+
+  function applyResponsiveMobileOverride(element, property, value) {
+    var selector = ensureElementCpId(element);
+    var styleEl = getOrCreateResponsiveOverridesStyle();
+    var text = styleEl.textContent || '';
+    var mediaStart = text.indexOf(MOBILE_MEDIA);
+    var inner = '';
+    var i = text.length;
+    if (mediaStart >= 0) {
+      var brace = text.indexOf('{', mediaStart);
+      var depth = 1;
+      i = brace + 1;
+      while (depth > 0 && i < text.length) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') depth--;
+        i++;
+      }
+      inner = text.substring(brace + 1, i - 1);
+    }
+    var selectorIdx = inner.indexOf(selector);
+    var ruleStart = selectorIdx >= 0 ? inner.lastIndexOf('{', selectorIdx) : -1;
+    var ruleEnd = selectorIdx >= 0 ? inner.indexOf('}', selectorIdx) + 1 : 0;
+    if (ruleStart < 0) ruleStart = 0;
+    var rule = selectorIdx >= 0 ? inner.substring(ruleStart, ruleEnd) : '';
+    var propPrefix = property + ':';
+    var idx = rule.indexOf(propPrefix);
+    while (idx >= 0) {
+      var endIdx = rule.indexOf(';', idx);
+      if (endIdx >= 0) rule = rule.substring(0, idx).trim() + (rule.substring(endIdx + 1).trim() ? ' ' + rule.substring(endIdx + 1).trim() : '');
+      else rule = rule.substring(0, idx).trim();
+      idx = rule.indexOf(propPrefix);
+    }
+    var lastBrace = rule.lastIndexOf('}');
+    if (lastBrace >= 0) rule = rule.substring(0, lastBrace).trim() + ' ' + property + ': ' + value + ' !important; }';
+    else rule = rule + ' ' + property + ': ' + value + ' !important;';
+    if (!rule.trim() || rule.trim() === '}') rule = selector + ' { ' + property + ': ' + value + ' !important; }';
+    var newInner = selectorIdx >= 0 ? inner.substring(0, ruleStart) + rule + inner.substring(ruleEnd) : inner + (inner ? ' ' : '') + rule;
+    var newText = mediaStart >= 0 ? text.substring(0, mediaStart) + MOBILE_MEDIA + ' { ' + newInner + ' }' + text.substring(i) : MOBILE_MEDIA + ' { ' + newInner + ' }';
+    styleEl.textContent = newText;
+  }
+
+  function removeResponsiveMobileOverrideForProperty(element, property) {
+    var selector = element.getAttribute('data-cp-id') ? '[data-cp-id="' + element.getAttribute('data-cp-id') + '"]' : (element.id ? '#' + element.id : null);
+    if (!selector) return;
+    var styleEl = document.getElementById(CP_RESPONSIVE_OVERRIDES_ID);
+    if (!styleEl) return;
+    var text = styleEl.textContent || '';
+    var mediaStart = text.indexOf(MOBILE_MEDIA);
+    if (mediaStart < 0) return;
+    var brace = text.indexOf('{', mediaStart);
+    var depth = 1;
+    var i = brace + 1;
+    while (depth > 0 && i < text.length) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') depth--;
+      i++;
+    }
+    var inner = text.substring(brace + 1, i - 1);
+    var selectorIdx = inner.indexOf(selector);
+    if (selectorIdx < 0) return;
+    var ruleEnd = inner.indexOf('}', selectorIdx) + 1;
+    var ruleStart = inner.lastIndexOf('{', selectorIdx) + 1;
+    var rule = inner.substring(ruleStart, ruleEnd);
+    var propPrefix = property + ':';
+    var idx = rule.indexOf(propPrefix);
+    while (idx >= 0) {
+      var endIdx = rule.indexOf(';', idx);
+      if (endIdx >= 0) rule = rule.substring(0, idx).trim() + (rule.substring(endIdx + 1).trim() ? ' ' + rule.substring(endIdx + 1).trim() : '');
+      else rule = rule.substring(0, idx).trim();
+      idx = rule.indexOf(propPrefix);
+    }
+    rule = rule.trim();
+    if (rule.length === 0 || rule === '}' || rule.indexOf('{') < 0) {
+      inner = inner.substring(0, ruleStart - 1).trim() + inner.substring(ruleEnd);
+    } else {
+      inner = inner.substring(0, ruleStart) + rule + inner.substring(ruleEnd);
+    }
+    styleEl.textContent = text.substring(0, mediaStart) + MOBILE_MEDIA + ' { ' + inner + ' }' + text.substring(i);
   }
 
   // ============================================
@@ -4960,10 +5074,12 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🔲 [Resize] Iniciando resize na direção:', direction);
+    console.log('🔲 [Resize] Iniciando resize na direção:', direction, 'viewport:', currentEditorViewport);
     
-    // Adicionar classe de resize
     element.classList.add('cp-resizing');
+    
+    var savedInlineWidth = element.style.width || '';
+    var savedInlineHeight = element.style.height || '';
     
     const startX = e.clientX;
     const startY = e.clientY;
@@ -4971,7 +5087,6 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
     const startHeight = element.offsetHeight;
     const computedStyle = window.getComputedStyle(element);
     
-    // Guardar valores originais
     const originalWidth = computedStyle.width;
     const originalHeight = computedStyle.height;
     
@@ -4988,9 +5103,8 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
       let newWidth = startWidth;
       let newHeight = startHeight;
       
-      // Calcular novo tamanho baseado na direção do handle
       if (direction.includes('e')) {
-        newWidth = Math.max(20, startWidth + deltaX); // Mínimo 20px
+        newWidth = Math.max(20, startWidth + deltaX);
       }
       if (direction.includes('w')) {
         newWidth = Math.max(20, startWidth - deltaX);
@@ -5002,33 +5116,56 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
         newHeight = Math.max(20, startHeight - deltaY);
       }
       
-      // Aplicar novos tamanhos
       if (direction.includes('e') || direction.includes('w')) {
         element.style.width = newWidth + 'px';
-        // 📱 Aplicar ajuste mobile automaticamente
-        applyMobileAutoFix(element, 'width', newWidth + 'px');
+        if (currentEditorViewport === 'desktop') {
+          applyMobileAutoFix(element, 'width', newWidth + 'px');
+        }
       }
       if (direction.includes('n') || direction.includes('s')) {
         element.style.height = newHeight + 'px';
-        // 📱 Aplicar ajuste mobile automaticamente
-        applyMobileAutoFix(element, 'height', newHeight + 'px');
+        if (currentEditorViewport === 'desktop') {
+          applyMobileAutoFix(element, 'height', newHeight + 'px');
+        }
       }
       
-      // Atualizar posição dos handles
       updateResizeHandlesPosition(element);
     }
     
     function onMouseUp() {
-      console.log('🔲 [Resize] Resize finalizado');
+      console.log('🔲 [Resize] Resize finalizado, viewport:', currentEditorViewport);
       
-      // Remover classe de resize
       element.classList.remove('cp-resizing');
       
-      // Remover event listeners
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       
-      // Notificar parent que elemento foi atualizado
+      var finalWidth = element.style.width || (element.offsetWidth + 'px');
+      var finalHeight = element.style.height || (element.offsetHeight + 'px');
+      
+      if (currentEditorViewport === 'mobile') {
+        try {
+          applyResponsiveMobileOverride(element, 'width', finalWidth);
+          applyResponsiveMobileOverride(element, 'height', finalHeight);
+          element.style.width = savedInlineWidth;
+          element.style.height = savedInlineHeight;
+          console.log('🔲 [Resize] Aplicado ao mobile (overrides), inline restaurado');
+        } catch (err) {
+          console.warn('🔲 [Resize] Fallback mobile:', err);
+          element.style.width = finalWidth;
+          element.style.height = finalHeight;
+        }
+      } else {
+        try {
+          removeResponsiveMobileOverrideForProperty(element, 'width');
+          removeResponsiveMobileOverrideForProperty(element, 'height');
+          applyMobileAutoFix(element, 'width', finalWidth);
+          applyMobileAutoFix(element, 'height', finalHeight);
+        } catch (err) {
+          console.warn('🔲 [Resize] remove/applyMobileAutoFix ignorado:', err);
+        }
+      }
+      
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({
           source: 'EDITOR_IFRAME',
@@ -5550,6 +5687,12 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
 
     const { source, type, data } = event.data;
 
+    if (source === 'EDITOR_PARENT' && type === 'SET_EDITOR_VIEWPORT' && data && (data.viewport === 'desktop' || data.viewport === 'mobile')) {
+      currentEditorViewport = data.viewport;
+      console.log('📱🖥️ [Editor] Viewport definido:', currentEditorViewport);
+      return;
+    }
+
     // Processar UPDATE_ELEMENT
     if (source === 'EDITOR_PARENT' && type === 'UPDATE_ELEMENT' && data) {
       console.log('📨 [Editor] Recebido UPDATE_ELEMENT:', data);
@@ -5589,8 +5732,27 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
           // 2. Aplicar a mudança baseado no tipo
           switch (data.type) {
             case 'style':
-              // Aplicar CSS com tratamento especial para animações
+              // Aplicar CSS com tratamento especial para animações e viewport
               console.log(\`🎨 Aplicando estilo \${data.property} = \${data.value}\`);
+
+              // 📱🖥️ VIEWPORT: mobile → bloco cp-responsive-overrides; desktop/undefined → inline
+              var isMobileViewport = data.viewport === 'mobile';
+              if (isMobileViewport) {
+                try {
+                  applyResponsiveMobileOverride(element, data.property, data.value);
+                } catch (err) {
+                  console.warn('📱 [Responsivo] Fallback: aplicando inline', err);
+                  element.style[data.property] = data.value;
+                }
+                break;
+              }
+              if (data.viewport === 'desktop' || data.viewport === undefined) {
+                try {
+                  removeResponsiveMobileOverrideForProperty(element, data.property);
+                } catch (err) {
+                  console.warn('📱 [Responsivo] removeResponsiveMobileOverrideForProperty ignorado', err);
+                }
+              }
 
               // 🎬 TRATAMENTO ESPECIAL para animações
               if (data.property === 'animation') {
@@ -5644,11 +5806,9 @@ src="https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1"
                 }
 
               } else {
-                // Aplicar estilo normal para propriedades que não são animação
+                // Aplicar estilo normal para propriedades que não são animação (desktop)
                 element.style[data.property] = data.value;
-                
-                // 📱 AJUSTE AUTOMÁTICO PARA MOBILE
-                // Aplicar correções responsivas automaticamente
+                // 📱 AJUSTE AUTOMÁTICO PARA MOBILE apenas quando não é override explícito mobile
                 applyMobileAutoFix(element, data.property, data.value);
               }
               break;

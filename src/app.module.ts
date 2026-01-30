@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { JwtModule } from '@nestjs/jwt'
 import { User } from './database/entities/user.entity'
 import { Task } from './database/entities/task.entity'
+import { CloneHistory } from './database/entities/clone-history.entity'
 import { UsersModule } from './modules/users/users.module'
 import { TasksModule } from './modules/tasks/tasks.module'
 import { CloneModule } from './modules/clone/clone.module'
@@ -27,7 +28,7 @@ import { KiwifyModule } from './modules/webhooks/kiwify/kiwify.module'
         const config = {
           type: 'sqlite' as const,
           database: databaseFile,
-          entities: [User, Task],
+          entities: [User, Task, CloneHistory],
           synchronize: true,
           autoLoadEntities: true
         }
@@ -43,7 +44,7 @@ import { KiwifyModule } from './modules/webhooks/kiwify/kiwify.module'
         signOptions: { expiresIn: '7d' }
       })
     }),
-    TypeOrmModule.forFeature([User, Task]),
+    TypeOrmModule.forFeature([User, Task, CloneHistory]),
     UsersModule,
     TasksModule,
     CloneModule,
